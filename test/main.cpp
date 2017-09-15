@@ -1,6 +1,7 @@
 #include <stdio.h>
 
 #include "zekku/Pool.h"
+#include "zekku/QuadTree.h"
 
 constexpr size_t hc = 64;
 
