@@ -31,7 +31,7 @@ namespace zekku {
       r.seed(time(nullptr));
       memset(allocated, 0, START_CAPAT * sizeof(bool));
     }
-    ~Pool() { delete[] elems; delete[] allocated; }
+    ~Pool() { ::free(elems); ::free(allocated); }
     Pool(const Pool& other) = delete;
     Pool& operator=(const Pool& other) = delete;
     Pool& operator=(Pool&& other) {
