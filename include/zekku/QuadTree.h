@@ -4,6 +4,7 @@
 #define ZEKKU_QUADTREE_H
 #include <stddef.h>
 #include <stdint.h>
+#include <iostream>
 #include <limits>
 #include <type_traits>
 #include "zekku/Pool.h"
@@ -13,8 +14,8 @@ namespace zekku {
   struct DefaultGetXY {
     static_assert(std::is_floating_point<F>::value,
       "Your F is not a floating-point number, dum dum!");
-    F getX(T t) { return t.x; }
-    F getY(T t) { return t.y; }
+    static F getX(T t) { return t.x; }
+    static F getY(T t) { return t.y; }
   };
   template<typename F = float>
   struct AABB {
@@ -47,36 +48,45 @@ namespace zekku {
       root = (I) nodes.allocate();
     }
     void insert(T&& t) {
-      insert(t, GetXY::getX(t), GetXY::getY(t), root, box);
+      F x = GetXY::getX(t);
+      F y = GetXY::getY(t);
+      if (x < box.x - box.w || x > box.x + box.w ||
+          y < box.y - box.h || y > box.y + box.h) {
+        std::cerr << "(" << x << ", " << y << ") is out of range!\n";
+        std::cerr << "Box is centred at (" << box.x << ", " << box.y << ") ";
+        std::cerr << "with w = " << box.w << " and h = " << box.h << "\n";
+        exit(-1);
+      }
+      insert(std::move(t), x, y, root, box);
     }
   private:
-    static constexpr I NOWHERE = -1U;
+    static constexpr I NOWHERE = -1;
     class Node {
     public:
       Node() :
         nw(NOWHERE), sw(NOWHERE), ne(NOWHERE), se(NOWHERE),
         nodeCount(0) {}
       T nodes[nc];
-      I nodeCount; // Set to NOWHERE if not a leaf.
       I nw, sw, ne, se;
+      I nodeCount; // Set to NOWHERE if not a leaf.
     };
     Pool<Node> nodes;
     I root;
     AABB<F> box;
     void insertStem(T&& t, F x, F y, Node& n, AABB<F> box) {
       if (x < box.x) { // West
-        if (y < box.y) insert(t, x, y, n.nw, box.nw());
-        else insert(t, x, y, n.sw, box.sw());
+        if (y < box.y) insert(std::move(t), x, y, n.nw, box.nw());
+        else insert(std::move(t), x, y, n.sw, box.sw());
       } else { // East
-        if (y < box.y) insert(t, x, y, n.ne, box.ne());
-        else insert(t, x, y, n.se, box.se());
+        if (y < box.y) insert(std::move(t), x, y, n.ne, box.ne());
+        else insert(std::move(t), x, y, n.se, box.se());
       }
     }
     // Insert an element in the qtree
     void insert(T&& t, F x, F y, I root, AABB<F> box) {
       Node& n = nodes.get(root);
       if (n.nodeCount == NOWHERE) {
-        insertStem(t, x, y, n, box);
+        insertStem(std::move(t), x, y, n, box);
       } else if (n.nodeCount < nc) {
         n.nodes[n.nodeCount] = t;
         ++n.nodeCount;
@@ -89,8 +99,8 @@ namespace zekku {
         n.se = nodes.allocate();
         n.nodeCount = -1;
         for (size_t i = 0; i < nc; ++i)
-          insertStem(std::move(nodes[i]), x, y, n, box);
-        insertStem(t, x, y, n, box);
+          insertStem(std::move(n.nodes[i]), x, y, n, box);
+        insertStem(std::move(t), x, y, n, box);
       }
     }
   };

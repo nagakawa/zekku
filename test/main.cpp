@@ -5,8 +5,7 @@
 
 constexpr size_t hc = 64;
 
-int main() {
-  printf("Testing...\n");
+void testPool() {
   zekku::Pool<size_t> p;
   size_t handles[hc];
   for (size_t i = 0; i < hc; ++i) {
@@ -18,5 +17,20 @@ int main() {
     size_t val = p.get(handles[i]);
     printf("i = %zu: got %zu, expected %zu\n", i, val, 35 * i);
   }
+}
+
+struct Pair {
+  float x, y;
+};
+
+void testQTree() {
+  zekku::QuadTree<Pair> tree({0, 0, 100, 100});
+  tree.insert({2, 7});
+}
+
+int main() {
+  printf("Testing...\n");
+  testPool();
+  testQTree();
   return 0;
 }
