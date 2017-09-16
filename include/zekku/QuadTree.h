@@ -47,6 +47,10 @@ namespace zekku {
     QuadTree(const AABB<F>& box) : box(box) {
       root = (I) nodes.allocate();
     }
+    void insert(const T& t) {
+      T t2 = t;
+      insert(std::move(t2));
+    }
     void insert(T&& t) {
       F x = GetXY::getX(t);
       F y = GetXY::getY(t);
