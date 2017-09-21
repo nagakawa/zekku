@@ -24,7 +24,7 @@ struct Pair {
 };
 
 void testQTree() {
-  zekku::QuadTree<Pair> tree({0, 0, 100, 100});
+  zekku::QuadTree<Pair> tree({{0.0f, 0.0f}, {100.0f, 100.0f}});
   tree.insert({2, 7});
 }
 
