@@ -2,6 +2,7 @@
 
 #ifndef ZEKKU_QUADTREE_H
 #define ZEKKU_QUADTREE_H
+#include <assert.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <algorithm>
@@ -27,14 +28,14 @@ namespace zekku {
       "Your F is not a floating-point number, dum dum!");
     Vec2<F> c;
     Vec2<F> s; // centre to corner
-    AABB<F> nw() { return {c - s / 2, s / 2}; }
-    AABB<F> ne() { return {c + s * Vec2<F>{1.0f, -1.0f} / 2, s / 2}; }
-    AABB<F> sw() { return {c + s * Vec2<F>{-1.0f, 1.0f} / 2, s / 2}; }
-    AABB<F> se() { return {c + s / 2, s / 2}; }
-    Vec2<F> nwp() { return c - s; }
-    Vec2<F> nep() { return c + s * Vec2<F>{1.0f, -1.0f}; }
-    Vec2<F> swp() { return c + s * Vec2<F>{-1.0f, 1.0f}; }
-    Vec2<F> sep() { return c + s; }
+    AABB<F> nw() const { return {c - s / 2, s / 2}; }
+    AABB<F> ne() const { return {c + s * Vec2<F>{1.0f, -1.0f} / 2, s / 2}; }
+    AABB<F> sw() const { return {c + s * Vec2<F>{-1.0f, 1.0f} / 2, s / 2}; }
+    AABB<F> se() const { return {c + s / 2, s / 2}; }
+    Vec2<F> nwp() const { return c - s; }
+    Vec2<F> nep() const { return c + s * Vec2<F>{1.0f, -1.0f}; }
+    Vec2<F> swp() const { return c + s * Vec2<F>{-1.0f, 1.0f}; }
+    Vec2<F> sep() const { return c + s; }
     bool contains(Vec2<F> p) const {
       return
         p[0] >= c[0] - s[0] &&
@@ -56,14 +57,37 @@ namespace zekku {
     bool contains(Vec2<F> p) const {
       return (c - p).r2() <= r * r;
     }
+    /*
+    This method considers a rounded rectangle around the AABB with
+    thickness r. This figure can be thought of as the union of
+    four circles and two rectangles.
+    thanks https://gamedev.stackexchange.com/a/120897
+    */
     bool intersects(const AABB<F>& b) const {
-      Vec2<F> p = c;
-      p.x() = std::min(p.x(), b.c.x() + b.s.x());
-      p.x() = std::max(p.x(), b.c.x() - b.s.x());
-      p.y() = std::min(p.y(), b.c.y() + b.s.y());
-      p.y() = std::max(p.y(), b.c.y() - b.s.y());
-      return (c - p).r2() <= r * r;
+      F r2 = r * r;
+      return
+        (c - b.nwp()).r2() <= r2 ||
+        (c - b.swp()).r2() <= r2 ||
+        (c - b.nep()).r2() <= r2 ||
+        (c - b.sep()).r2() <= r2 ||
+        (
+          c.x() >= b.c.x() - b.s.x() &&
+          c.x() <= b.c.x() + b.s.x() &&
+          c.y() >= b.c.y() - b.s.y() - r &&
+          c.y() <= b.c.y() + b.s.y() + r
+        ) ||
+        (
+          c.x() >= b.c.x() - b.s.x() - r &&
+          c.x() <= b.c.x() + b.s.x() + r &&
+          c.y() >= b.c.y() - b.s.y() &&
+          c.y() <= b.c.y() + b.s.y()
+        );
     }
+  };
+  template<typename F = float>
+  struct QueryAll {
+    bool contains(Vec2<F> p) const { return true; }
+    bool intersects(const AABB<F>& b) const { return true; }
   };
   template<typename I = uint16_t>
   struct Handle { I nodeid, index; };
@@ -99,6 +123,7 @@ namespace zekku {
         exit(-1);
       }
       insert(std::move(t), p, root, box);
+      assert(nodes.getCapacity() <= 65536);
     }
     const T& deref(const Handle<I>& h) const {
       return nodes.get(h.nodeid).nodes[h.index];
@@ -109,6 +134,9 @@ namespace zekku {
     template<typename Q = AABB<T>>
     void query(const Q& shape, std::vector<Handle<I>>& out) const {
       query(shape, out, root, box);
+    }
+    void dump() const {
+      dump(root, box);
     }
   private:
     static constexpr I NOWHERE = -1;
@@ -125,9 +153,9 @@ namespace zekku {
     I root;
     AABB<F> box;
     I createNode() {
-      I i = nodes.allocate();
+      size_t i = nodes.allocate();
       nodes.get(i).nodeCount = 0;
-      return i;
+      return (I) i;
     }
     void insertStem(T&& t, Vec2<F> p, Node& n, AABB<F> box) {
       if (p[0] < box.c[0]) { // West
@@ -138,9 +166,9 @@ namespace zekku {
         else insert(std::move(t), p, n.se, box.se());
       }
     }
+#define n (nodes.get(root))
     // Insert an element in the qtree
     void insert(T&& t, Vec2<F> p, I root, AABB<F> box) {
-      Node& n = nodes.get(root);
       if (n.nodeCount == NOWHERE) {
         insertStem(std::move(t), p, n, box);
       } else if (n.nodeCount < nc) {
@@ -149,10 +177,14 @@ namespace zekku {
       } else {
         // Leaf is full!
         // Split into multiple trees.
-        n.nw = createNode();
-        n.ne = createNode();
-        n.sw = createNode();
-        n.se = createNode();
+        I nw = createNode();
+        I ne = createNode();
+        I sw = createNode();
+        I se = createNode();
+        n.nw = nw;
+        n.ne = ne;
+        n.sw = sw;
+        n.se = se;
         n.nodeCount = NOWHERE;
         for (size_t i = 0; i < nc; ++i) {
           T& sub = n.nodes[i];
@@ -162,6 +194,7 @@ namespace zekku {
         insertStem(std::move(t), p, n, box);
       }
     }
+#undef n
     template<typename Q = AABB<T>>
     void query(
         const Q& shape, std::vector<Handle<I>>& out,
@@ -181,6 +214,30 @@ namespace zekku {
           if (shape.contains(GetXY::getPos(n.nodes[i])))
             out.push_back({root, i});
         }
+      }
+    }
+    static void indent(size_t n) {
+      for (size_t i = 0; i < n; ++i) std::cerr << ' ';
+    }
+    static void printAABB(const AABB<F>& box) {
+      std::cerr << "[" << box.c[0] - box.s[0] << ", " << box.c[1] - box.s[1] <<
+        "; " <<  box.c[0] + box.s[0] << ", " << box.c[1] + box.s[1] << "] ";
+    }
+    void dump(I root, AABB<F> box, size_t s = 0) const {
+      const Node& n = nodes.get(root);
+      if (n.nodeCount == NOWHERE) {
+        std::cerr << "Stem "; printAABB(box); std::cerr << ":\n";
+        indent(s); std::cerr << "NW "; dump(n.nw, box.nw(), s + 1);
+        indent(s); std::cerr << "SW "; dump(n.sw, box.sw(), s + 1);
+        indent(s); std::cerr << "NE "; dump(n.ne, box.ne(), s + 1);
+        indent(s); std::cerr << "SE "; dump(n.se, box.se(), s + 1);
+      } else {
+        std::cerr << "Leaf "; printAABB(box); std::cerr << ":";
+        for (size_t i = 0; i < n.nodeCount; ++i) {
+          Vec2<F> p = GetXY::getPos(n.nodes[i]);
+          std::cerr << " (" << p.x() << ", " << p.y() << ")";
+        }
+        std::cerr << "\n";
       }
     }
   };

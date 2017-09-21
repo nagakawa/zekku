@@ -41,8 +41,12 @@ namespace zekku {
       std::swap(allocated, other.allocated);
       return *this;
     }
-    T& get(size_t handle) { return elems[handle]; }
-    const T& get(size_t handle) const { return elems[handle]; }
+    T& get(size_t handle) {
+      return elems[handle];
+    }
+    const T& get(size_t handle) const {
+      return elems[handle];
+    }
     template<typename... Args>
     size_t allocate(Args&&... args) {
       if (shouldExpand()) expand();
@@ -61,6 +65,8 @@ namespace zekku {
       --filled;
     }
     bool isValid(size_t handle) { return allocated[handle]; }
+    size_t size() const { return filled; }
+    size_t getCapacity() const { return capacity; }
   private:
     bool shouldExpand() {
       return filled * 4 >= capacity * 3;

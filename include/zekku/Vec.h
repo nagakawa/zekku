@@ -10,7 +10,7 @@ namespace zekku {
   class Vec {
   public:
     template<typename... T2>
-    Vec(T2... v) : under{v...} {
+    Vec(T2... v) : under{{v...}} {
       static_assert(sizeof(Vec<T, n>) == n * sizeof(T),
         "Basic sanity check; this should pass");
     }
