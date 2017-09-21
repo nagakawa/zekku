@@ -50,7 +50,7 @@ namespace zekku {
     template<typename... Args>
     size_t allocate(Args&&... args) {
       if (shouldExpand()) expand();
-      size_t bucket = r() % capacity;
+      size_t bucket = r() & (capacity - 1);
       while (allocated[bucket]) {
         ++bucket;
         if (bucket >= capacity) bucket -= capacity;

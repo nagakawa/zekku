@@ -104,7 +104,7 @@ void testQTree() {
     system_clock::now().time_since_epoch()
   );
   size_t ints = 0;
-  constexpr size_t iters = 10000;
+  constexpr size_t iters = 100000;
   for (size_t i = 0; i < iters; ++i) {
     float x = rd(r);
     float y = rd(r);
