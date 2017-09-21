@@ -42,6 +42,7 @@ namespace zekku {
       return *this;
     }
     T& get(size_t handle) { return elems[handle]; }
+    const T& get(size_t handle) const { return elems[handle]; }
     template<typename... Args>
     size_t allocate(Args&&... args) {
       if (shouldExpand()) expand();

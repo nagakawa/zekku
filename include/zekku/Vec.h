@@ -10,7 +10,10 @@ namespace zekku {
   class Vec {
   public:
     template<typename... T2>
-    Vec(T2... v) : under{v...} {}
+    Vec(T2... v) : under{v...} {
+      static_assert(sizeof(Vec<T, n>) == n * sizeof(T),
+        "Basic sanity check; this should pass");
+    }
     Vec(const Vec<T, n>& other) : under(other.under) {}
     Vec<T, n>& operator=(const Vec<T, n>& other) {
       under = other.under;
@@ -52,6 +55,27 @@ namespace zekku {
         r += under[i] * other[i];
       return r;
     }
+    T r2() const {
+      return dot(*this);
+    }
+#define DEF_FIELD(x, o, so) \
+    T x() const { \
+      static_assert(o < n, \
+        "This method is available only to vectors with at least " \
+        #so " elements"); \
+      return under[o]; \
+    } \
+    T& x() { \
+      static_assert(o < n, \
+        "This method is available only to vectors with at least " \
+        #so " elements"); \
+      return under[o]; \
+    }
+    DEF_FIELD(x, 0, 1)
+    DEF_FIELD(y, 1, 2)
+    DEF_FIELD(z, 2, 3)
+    DEF_FIELD(w, 3, 4)
+#undef DEF_FIELD
   private:
     std::array<T, n> under;
   };

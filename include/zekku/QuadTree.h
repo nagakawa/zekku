@@ -4,6 +4,8 @@
 #define ZEKKU_QUADTREE_H
 #include <stddef.h>
 #include <stdint.h>
+#include <algorithm>
+#include <cmath>
 #include <iostream>
 #include <limits>
 #include <type_traits>
@@ -29,14 +31,42 @@ namespace zekku {
     AABB<F> ne() { return {c + s * Vec2<F>{1.0f, -1.0f} / 2, s / 2}; }
     AABB<F> sw() { return {c + s * Vec2<F>{-1.0f, 1.0f} / 2, s / 2}; }
     AABB<F> se() { return {c + s / 2, s / 2}; }
-    bool contains(Vec2<F> p) {
+    Vec2<F> nwp() { return c - s; }
+    Vec2<F> nep() { return c + s * Vec2<F>{1.0f, -1.0f}; }
+    Vec2<F> swp() { return c + s * Vec2<F>{-1.0f, 1.0f}; }
+    Vec2<F> sep() { return c + s; }
+    bool contains(Vec2<F> p) const {
       return
         p[0] >= c[0] - s[0] &&
         p[0] <= c[0] + s[0] &&
         p[1] >= c[1] - s[1] &&
         p[1] <= c[1] + s[1];
     }
+    bool intersects(const AABB<F>& p) const {
+      return
+        (std::abs(c[0] - p.c[0]) <= (s[0] + p.s[0])) &&
+        (std::abs(c[1] - p.c[1]) <= (s[1] + p.s[1]));
+    }
   };
+  template<typename F = float>
+  struct CircleQuery {
+    CircleQuery(const Vec2<F>& c, F r) : c(c), r(r) {}
+    Vec2<F> c;
+    F r;
+    bool contains(Vec2<F> p) const {
+      return (c - p).r2() <= r * r;
+    }
+    bool intersects(const AABB<F>& b) const {
+      Vec2<F> p = c;
+      p.x() = std::min(p.x(), b.c.x() + b.s.x());
+      p.x() = std::max(p.x(), b.c.x() - b.s.x());
+      p.y() = std::min(p.y(), b.c.y() + b.s.y());
+      p.y() = std::max(p.y(), b.c.y() - b.s.y());
+      return (c - p).r2() <= r * r;
+    }
+  };
+  template<typename I = uint16_t>
+  struct Handle { I nodeid, index; };
   constexpr size_t QUADTREE_NODE_COUNT = 4;
   template<
     typename T,
@@ -70,6 +100,16 @@ namespace zekku {
       }
       insert(std::move(t), p, root, box);
     }
+    const T& deref(const Handle<I>& h) const {
+      return nodes.get(h.nodeid).nodes[h.index];
+    }
+    T& deref(const Handle<I>& h) {
+      return nodes.get(h.nodeid).nodes[h.index];
+    }
+    template<typename Q = AABB<T>>
+    void query(const Q& shape, std::vector<Handle<I>>& out) const {
+      query(shape, out, root, box);
+    }
   private:
     static constexpr I NOWHERE = -1;
     class Node {
@@ -84,6 +124,11 @@ namespace zekku {
     Pool<Node> nodes;
     I root;
     AABB<F> box;
+    I createNode() {
+      I i = nodes.allocate();
+      nodes.get(i).nodeCount = 0;
+      return i;
+    }
     void insertStem(T&& t, Vec2<F> p, Node& n, AABB<F> box) {
       if (p[0] < box.c[0]) { // West
         if (p[1] < box.c[1]) insert(std::move(t), p, n.nw, box.nw());
@@ -104,14 +149,38 @@ namespace zekku {
       } else {
         // Leaf is full!
         // Split into multiple trees.
-        n.nw = nodes.allocate();
-        n.ne = nodes.allocate();
-        n.sw = nodes.allocate();
-        n.se = nodes.allocate();
-        n.nodeCount = -1;
-        for (size_t i = 0; i < nc; ++i)
-          insertStem(std::move(n.nodes[i]), p, n, box);
+        n.nw = createNode();
+        n.ne = createNode();
+        n.sw = createNode();
+        n.se = createNode();
+        n.nodeCount = NOWHERE;
+        for (size_t i = 0; i < nc; ++i) {
+          T& sub = n.nodes[i];
+          Vec2<F> ps = GetXY::getPos(sub);
+          insertStem(std::move(sub), ps, n, box);
+        }
         insertStem(std::move(t), p, n, box);
+      }
+    }
+    template<typename Q = AABB<T>>
+    void query(
+        const Q& shape, std::vector<Handle<I>>& out,
+        I root, AABB<F> box) const {
+      // Abort if the query shape doesn't intersect the box
+      if (!shape.intersects(box)) return;
+      const Node& n = nodes.get(root);
+      if (n.nodeCount == NOWHERE) {
+        // It is a stem
+        query(shape, out, n.nw, box.nw());
+        query(shape, out, n.ne, box.ne());
+        query(shape, out, n.sw, box.sw());
+        query(shape, out, n.se, box.se());
+      } else {
+        // Leaf
+        for (I i = 0; i < n.nodeCount; ++i) {
+          if (shape.contains(GetXY::getPos(n.nodes[i])))
+            out.push_back({root, i});
+        }
       }
     }
   };
