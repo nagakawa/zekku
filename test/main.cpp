@@ -60,7 +60,7 @@ void testQTree() {
       nearPairs.insert(p);
     tree.insert(p);
   }
-  zekku::CircleQuery<float> query(zekku::Vec2<float>{q.x, q.y}, 20.0f);
+  zekku::CircleQuery<float> query(glm::tvec2<float>{q.x, q.y}, 20.0f);
   std::vector<zekku::Handle<uint16_t>> handles;
   tree.query(query, handles);
   std::set<Pair> actualNearPairs;
@@ -109,7 +109,7 @@ void testQTree() {
     float x = rd(r);
     float y = rd(r);
     std::vector<zekku::Handle<uint16_t>> handles;
-    zekku::CircleQuery<float> query(zekku::Vec2<float>{x, y}, 20.0f);
+    zekku::CircleQuery<float> query(glm::tvec2<float>{x, y}, 20.0f);
     tree.query(query, handles);
     ints += handles.size();
   }

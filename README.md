@@ -2,6 +2,10 @@
 
 Header-only utilities for game programming.
 
+### Dependencies
+
+The library depends on GLM for its vector classes.
+
 ### Pool
 
 A memory pool.
@@ -9,15 +13,6 @@ A memory pool.
 * uses a separate buffer to keep track of which handles are allocated
 * doubles its size when 75% full
 * handles are assigned randomly, with linear probing
-
-### Vec
-
-Custom vector class.
-
-* +-*/ (all elementwise)
-* .dot() dot product
-* .r2() square of magnitude
-* cross product nyi
 
 ### QuadTree
 

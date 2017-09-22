@@ -10,52 +10,50 @@
 #include <iostream>
 #include <limits>
 #include <type_traits>
+#include <glm/glm.hpp>
 #include "zekku/Pool.h"
-#include "zekku/Vec.h"
 
 namespace zekku {
   template<typename T, typename F = float>
   struct DefaultGetXY {
     static_assert(std::is_floating_point<F>::value,
       "Your F is not a floating-point number, dum dum!");
-    static F getX(T t) { return t.x; }
-    static F getY(T t) { return t.y; }
-    static Vec2<F> getPos(T t) { return {t.x, t.y}; }
+    glm::tvec2<F> getPos(T t) const { return {t.x, t.y}; }
   };
   template<typename F = float>
   struct AABB {
     static_assert(std::is_floating_point<F>::value,
       "Your F is not a floating-point number, dum dum!");
-    Vec2<F> c;
-    Vec2<F> s; // centre to corner
-    AABB<F> nw() const { return {c - s / 2, s / 2}; }
-    AABB<F> ne() const { return {c + s * Vec2<F>{1.0f, -1.0f} / 2, s / 2}; }
-    AABB<F> sw() const { return {c + s * Vec2<F>{-1.0f, 1.0f} / 2, s / 2}; }
-    AABB<F> se() const { return {c + s / 2, s / 2}; }
-    Vec2<F> nwp() const { return c - s; }
-    Vec2<F> nep() const { return c + s * Vec2<F>{1.0f, -1.0f}; }
-    Vec2<F> swp() const { return c + s * Vec2<F>{-1.0f, 1.0f}; }
-    Vec2<F> sep() const { return c + s; }
-    bool contains(Vec2<F> p) const {
+    glm::tvec2<F> c;
+    glm::tvec2<F> s; // centre to corner
+    AABB<F> nw() const { return {c - s * F{0.5}, s * F{0.5}}; }
+    AABB<F> ne() const { return {c + s * glm::tvec2<F>{0.5f, -0.5f}, s * F{0.5}}; }
+    AABB<F> sw() const { return {c + s * glm::tvec2<F>{-0.5f, 0.5f}, s * F{0.5}}; }
+    AABB<F> se() const { return {c + s * F{0.5}, s * F{0.5}}; }
+    glm::tvec2<F> nwp() const { return c - s; }
+    glm::tvec2<F> nep() const { return c + s * glm::tvec2<F>{1.0f, -1.0f}; }
+    glm::tvec2<F> swp() const { return c + s * glm::tvec2<F>{-1.0f, 1.0f}; }
+    glm::tvec2<F> sep() const { return c + s; }
+    bool contains(glm::tvec2<F> p) const {
       return
-        p[0] >= c[0] - s[0] &&
-        p[0] <= c[0] + s[0] &&
-        p[1] >= c[1] - s[1] &&
-        p[1] <= c[1] + s[1];
+        p.x >= c.x - s.x &&
+        p.x <= c.x + s.x &&
+        p.y >= c.y - s.y &&
+        p.y <= c.y + s.y;
     }
     bool intersects(const AABB<F>& p) const {
       return
-        (std::abs(c[0] - p.c[0]) <= (s[0] + p.s[0])) &&
-        (std::abs(c[1] - p.c[1]) <= (s[1] + p.s[1]));
+        (std::abs(c.x - p.c.x) <= (s.x + p.s.x)) &&
+        (std::abs(c.y - p.c.y) <= (s.y + p.s.y));
     }
   };
   template<typename F = float>
   struct CircleQuery {
-    CircleQuery(const Vec2<F>& c, F r) : c(c), r(r) {}
-    Vec2<F> c;
+    CircleQuery(const glm::tvec2<F>& c, F r) : c(c), r(r) {}
+    glm::tvec2<F> c;
     F r;
-    bool contains(Vec2<F> p) const {
-      return (c - p).r2() <= r * r;
+    bool contains(glm::tvec2<F> p) const {
+      return glm::dot(c - p, c - p) <= r * r;
     }
     /*
     This method considers a rounded rectangle around the AABB with
@@ -66,27 +64,27 @@ namespace zekku {
     bool intersects(const AABB<F>& b) const {
       F r2 = r * r;
       return
-        (c - b.nwp()).r2() <= r2 ||
-        (c - b.swp()).r2() <= r2 ||
-        (c - b.nep()).r2() <= r2 ||
-        (c - b.sep()).r2() <= r2 ||
+        glm::dot(c - b.nwp(), c - b.nwp()) <= r2 ||
+        glm::dot(c - b.swp(), c - b.swp()) <= r2 ||
+        glm::dot(c - b.nep(), c - b.nep()) <= r2 ||
+        glm::dot(c - b.sep(), c - b.sep()) <= r2 ||
         (
-          c.x() >= b.c.x() - b.s.x() &&
-          c.x() <= b.c.x() + b.s.x() &&
-          c.y() >= b.c.y() - b.s.y() - r &&
-          c.y() <= b.c.y() + b.s.y() + r
+          c.x >= b.c.x - b.s.x &&
+          c.x <= b.c.x + b.s.x &&
+          c.y >= b.c.y - b.s.y - r &&
+          c.y <= b.c.y + b.s.y + r
         ) ||
         (
-          c.x() >= b.c.x() - b.s.x() - r &&
-          c.x() <= b.c.x() + b.s.x() + r &&
-          c.y() >= b.c.y() - b.s.y() &&
-          c.y() <= b.c.y() + b.s.y()
+          c.x >= b.c.x - b.s.x - r &&
+          c.x <= b.c.x + b.s.x + r &&
+          c.y >= b.c.y - b.s.y &&
+          c.y <= b.c.y + b.s.y
         );
     }
   };
   template<typename F = float>
   struct QueryAll {
-    bool contains(Vec2<F> p) const { return true; }
+    bool contains(glm::tvec2<F> p) const { return true; }
     bool intersects(const AABB<F>& b) const { return true; }
   };
   template<typename I = uint16_t>
@@ -107,15 +105,15 @@ namespace zekku {
       "Don't use a signed int for sizes, dum dum!");
     static_assert(std::is_floating_point<F>::value,
       "Your F is not a floating-point number, dum dum!");
-    QuadTree(const AABB<F>& box) : box(box) {
-      root = (I) nodes.allocate();
-    }
+    template<typename... Args>
+    QuadTree(const AABB<F>& box, Args&&... args) :
+        root((I) nodes.allocate()), box(box), gxy(args...) {}
     void insert(const T& t) {
       T t2 = t;
       insert(std::move(t2));
     }
     void insert(T&& t) {
-      Vec2<F> p = GetXY::getPos(t);
+      glm::tvec2<F> p = gxy.getPos(t);
       if (!box.contains(p)) {
         std::cerr << "(" << p[0] << ", " << p[1] << ") is out of range!\n";
         std::cerr << "Box is centred at (" << box.c[0] << ", " << box.c[1] << ") ";
@@ -152,23 +150,24 @@ namespace zekku {
     Pool<Node> nodes;
     I root;
     AABB<F> box;
+    GetXY gxy;
     I createNode() {
       size_t i = nodes.allocate();
       nodes.get(i).nodeCount = 0;
       return (I) i;
     }
-    void insertStem(T&& t, Vec2<F> p, Node& n, AABB<F> box) {
-      if (p[0] < box.c[0]) { // West
-        if (p[1] < box.c[1]) insert(std::move(t), p, n.nw, box.nw());
+    void insertStem(T&& t, glm::tvec2<F> p, Node& n, AABB<F> box) {
+      if (p.x < box.c.x) { // West
+        if (p.y < box.c.y) insert(std::move(t), p, n.nw, box.nw());
         else insert(std::move(t), p, n.sw, box.sw());
       } else { // East
-        if (p[1] < box.c[1]) insert(std::move(t), p, n.ne, box.ne());
+        if (p.y < box.c.y) insert(std::move(t), p, n.ne, box.ne());
         else insert(std::move(t), p, n.se, box.se());
       }
     }
 #define n (nodes.get(root))
     // Insert an element in the qtree
-    void insert(T&& t, Vec2<F> p, I root, AABB<F> box) {
+    void insert(T&& t, glm::tvec2<F> p, I root, AABB<F> box) {
       if (n.nodeCount == NOWHERE) {
         insertStem(std::move(t), p, n, box);
       } else if (n.nodeCount < nc) {
@@ -188,7 +187,7 @@ namespace zekku {
         n.nodeCount = NOWHERE;
         for (size_t i = 0; i < nc; ++i) {
           T& sub = n.nodes[i];
-          Vec2<F> ps = GetXY::getPos(sub);
+          glm::tvec2<F> ps = gxy.getPos(sub);
           insertStem(std::move(sub), ps, n, box);
         }
         insertStem(std::move(t), p, n, box);
@@ -211,7 +210,7 @@ namespace zekku {
       } else {
         // Leaf
         for (I i = 0; i < n.nodeCount; ++i) {
-          if (shape.contains(GetXY::getPos(n.nodes[i])))
+          if (shape.contains(gxy.getPos(n.nodes[i])))
             out.push_back({root, i});
         }
       }
@@ -234,8 +233,8 @@ namespace zekku {
       } else {
         std::cerr << "Leaf "; printAABB(box); std::cerr << ":";
         for (size_t i = 0; i < n.nodeCount; ++i) {
-          Vec2<F> p = GetXY::getPos(n.nodes[i]);
-          std::cerr << " (" << p.x() << ", " << p.y() << ")";
+          glm::tvec2<F> p = gxy.getPos(n.nodes[i]);
+          std::cerr << " (" << p.x << ", " << p.y << ")";
         }
         std::cerr << "\n";
       }
