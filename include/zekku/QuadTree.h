@@ -88,7 +88,23 @@ namespace zekku {
     bool intersects(const AABB<F>& b) const { return true; }
   };
   template<typename I = uint16_t>
-  struct Handle { I nodeid, index; };
+  struct Handle {
+    I nodeid, index;
+    bool operator==(const Handle<I>& other) const {
+      return nodeid == other.nodeid && index == other.index;
+    }
+    bool operator<(const Handle<I>& other) const {
+      if (nodeid < other.nodeid) return true;
+      if (nodeid > other.nodeid) return false;
+      return index < other.index;
+    }
+  };
+  template<typename I = uint16_t>
+  struct HandleHasher {
+    size_t operator()(const Handle<I>& h) {
+      return (std::hash<I>(h.nodeid) << 1) ^ std::hash<I>(h.index);
+    }
+  };
   constexpr size_t QUADTREE_NODE_COUNT = 4;
   template<
     typename T,
