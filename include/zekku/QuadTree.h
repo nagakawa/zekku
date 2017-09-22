@@ -133,6 +133,26 @@ namespace zekku {
     void query(const Q& shape, std::vector<Handle<I>>& out) const {
       query(shape, out, root, box);
     }
+    template<typename Q = AABB<T>, typename C>
+    void query(const Q& shape, C callback) const {
+      query(shape, callback, root, box);
+    }
+    template<typename C>
+    QuadTree map(C f) const {
+      QuadTree q(box, gxy);
+      query(QueryAll<F>(), [&q](const T& t) {
+        q.insert(t);
+      });
+      return q;
+    }
+    template<typename C>
+    QuadTree mapm(C f) {
+      QuadTree q(box, gxy);
+      query(QueryAll<F>(), [&q](T&& t) {
+        q.insert(std::move(t));
+      });
+      return q;
+    }
     void dump() const {
       dump(root, box);
     }
@@ -212,6 +232,27 @@ namespace zekku {
         for (I i = 0; i < n.nodeCount; ++i) {
           if (shape.contains(gxy.getPos(n.nodes[i])))
             out.push_back({root, i});
+        }
+      }
+    }
+    template<typename Q = AABB<T>, typename C>
+    void query(
+        const Q& shape, C callback,
+        I root, AABB<F> box) const {
+      // Abort if the query shape doesn't intersect the box
+      if (!shape.intersects(box)) return;
+      const Node& n = nodes.get(root);
+      if (n.nodeCount == NOWHERE) {
+        // It is a stem
+        query(shape, callback, n.nw, box.nw());
+        query(shape, callback, n.ne, box.ne());
+        query(shape, callback, n.sw, box.sw());
+        query(shape, callback, n.se, box.se());
+      } else {
+        // Leaf
+        for (I i = 0; i < n.nodeCount; ++i) {
+          if (shape.contains(gxy.getPos(n.nodes[i])))
+            callback(n.nodes[i]);
         }
       }
     }
