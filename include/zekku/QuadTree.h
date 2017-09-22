@@ -138,7 +138,7 @@ namespace zekku {
       query(shape, callback, root, box);
     }
     template<typename C>
-    QuadTree map(C f) const {
+    QuadTree map(const C& f) const {
       QuadTree q(box, gxy);
       query(QueryAll<F>(), [&q, f](const T& t) {
         q.insert(f(t));
@@ -146,10 +146,26 @@ namespace zekku {
       return q;
     }
     template<typename C>
-    QuadTree mapm(C f) {
+    QuadTree mapm(const C& f) {
       QuadTree q(box, gxy);
       query(QueryAll<F>(), [&q, f](T&& t) {
         q.insert(f(std::move(t)));
+      });
+      return q;
+    }
+    template<typename C, typename P>
+    QuadTree mapIf(const C& f, const P& b) const {
+      QuadTree q(box, gxy);
+      query(QueryAll<F>(), [&q, f, b](const T& t) {
+        if (b(t)) q.insert(f(t));
+      });
+      return q;
+    }
+    template<typename C, typename P>
+    QuadTree mapmIf(const C& f, const P& b) {
+      QuadTree q(box, gxy);
+      query(QueryAll<F>(), [&q, f, b](T&& t) {
+        if (b(t)) q.insert(f(std::move(t)));
       });
       return q;
     }
