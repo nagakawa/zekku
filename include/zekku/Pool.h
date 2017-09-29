@@ -34,6 +34,16 @@ namespace zekku {
     ~Pool() { ::free(elems); ::free(allocated); }
     Pool(const Pool& other) = delete;
     Pool& operator=(const Pool& other) = delete;
+    Pool(Pool&& other) :
+        filled(other.filled), capacity(other.capacity),
+        elems(other.elems), allocated(other.allocated) {
+      r.seed(time(nullptr));
+      other.filled = 0;
+      other.capacity = START_CAPAT;
+      other.elems = tmalloc<T>(START_CAPAT);
+      other.allocated = tmalloc<bool>(START_CAPAT);
+      memset(other.allocated, 0, START_CAPAT * sizeof(bool));
+    }
     Pool& operator=(Pool&& other) {
       std::swap(filled, other.filled);
       std::swap(capacity, other.capacity);

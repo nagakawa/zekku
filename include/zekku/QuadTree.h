@@ -127,7 +127,15 @@ namespace zekku {
     QuadTree(QuadTree<T, I, F, nc, GetXY>&& other) :
         nodes(std::move(other.nodes)), root(other.root),
         box(other.box), gxy(other.gxy) {
-      other.roots = (I) other.nodes.allocate();
+      other.root = (I) other.nodes.allocate();
+    }
+    QuadTree& operator=(QuadTree<T, I, F, nc, GetXY>&& other) {
+      nodes = std::move(other.nodes);
+      root = other.root;
+      other.root = (I) other.nodes.allocate();
+      box = other.box;
+      gxy = other.gxy;
+      return *this;
     }
     void insert(const T& t) {
       T t2 = t;
