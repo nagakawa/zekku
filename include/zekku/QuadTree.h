@@ -124,6 +124,11 @@ namespace zekku {
     template<typename... Args>
     QuadTree(const AABB<F>& box, Args&&... args) :
         root((I) nodes.allocate()), box(box), gxy(args...) {}
+    QuadTree(QuadTree<T, I, F, nc, GetXY>&& other) :
+        nodes(std::move(other.nodes)), root(other.root),
+        box(other.box), gxy(other.gxy) {
+      other.roots = (I) other.nodes.allocate();
+    }
     void insert(const T& t) {
       T t2 = t;
       insert(std::move(t2));
