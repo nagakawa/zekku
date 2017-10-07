@@ -395,6 +395,7 @@ namespace zekku {
           n = &nodes.get(n->nw);
         }
         if (n->nodeCount == NOWHERE) {
+          std::cerr << '\n';
           indent(s); std::cerr << "NW "; dump(n->nw, box.nw(), s + 1);
           indent(s); std::cerr << "SW "; dump(n->sw, box.sw(), s + 1);
           indent(s); std::cerr << "NE "; dump(n->ne, box.ne(), s + 1);
