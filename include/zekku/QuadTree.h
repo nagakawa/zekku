@@ -380,7 +380,13 @@ namespace zekku {
         indent(s); std::cerr << "NE "; dump(n->ne, box.ne(), s + 1);
         indent(s); std::cerr << "SE "; dump(n->se, box.se(), s + 1);
       } else {
-        std::cerr << "Leaf "; printAABB(box); std::cerr << ":";
+        const Node* end = n;
+        while (end->nodeCount == LINK) end = &nodes.get(end->nw);
+        if (end->nodeCount == NOWHERE) {
+          std::cerr << "Stem (with overflow nodes) "; printAABB(box); std::cerr << ":";
+        } else {
+          std::cerr << "Leaf "; printAABB(box); std::cerr << ":";
+        }
         while (n->nodeCount == LINK) {
           for (size_t i = 0; i < nc; ++i) {
             glm::tvec2<F> p = gxy.getPos(n->nodes[i]);
@@ -388,9 +394,16 @@ namespace zekku {
           }
           n = &nodes.get(n->nw);
         }
-        for (size_t i = 0; i < n->nodeCount; ++i) {
-          glm::tvec2<F> p = gxy.getPos(n->nodes[i]);
-          std::cerr << " (" << p.x << ", " << p.y << ")";
+        if (n->nodeCount == NOWHERE) {
+          indent(s); std::cerr << "NW "; dump(n->nw, box.nw(), s + 1);
+          indent(s); std::cerr << "SW "; dump(n->sw, box.sw(), s + 1);
+          indent(s); std::cerr << "NE "; dump(n->ne, box.ne(), s + 1);
+          indent(s); std::cerr << "SE "; dump(n->se, box.se(), s + 1);
+        } else {
+          for (size_t i = 0; i < n->nodeCount; ++i) {
+            glm::tvec2<F> p = gxy.getPos(n->nodes[i]);
+            std::cerr << " (" << p.x << ", " << p.y << ")";
+          }
         }
         std::cerr << "\n";
       }
