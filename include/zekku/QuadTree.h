@@ -7,6 +7,7 @@
 #include <stdint.h>
 #include <algorithm>
 #include <cmath>
+#include <functional>
 #include <iostream>
 #include <limits>
 #include <type_traits>
@@ -207,14 +208,21 @@ namespace zekku {
     }
   private:
     static constexpr I NOWHERE = -1;
+    static constexpr I LINK = -2;
     class Node {
     public:
       Node() :
         nw(NOWHERE), sw(NOWHERE), ne(NOWHERE), se(NOWHERE),
-        nodeCount(0) {}
+        nodeCount(0), hash(0) {}
       T nodes[nc];
+      // The following fields are unspecified if nodeCount < nc.
+      // If nodeCount == LINK, then nw contains the node with additional
+      // nodes and the rest of the fields are unspecified.
+      // If nodeCount == NOWHERE, then the fields point to the four
+      // child quadtrants of this node.
       I nw, sw, ne, se;
       I nodeCount; // Set to NOWHERE if not a leaf.
+      size_t hash;
     };
     Pool<Node> nodes;
     I root;
@@ -239,10 +247,14 @@ namespace zekku {
     void insert(T&& t, glm::tvec2<F> p, I root, AABB<F> box) {
       if (n.nodeCount == NOWHERE) {
         insertStem(std::move(t), p, n, box);
+      } else if (n.nodeCount == LINK) {
+        insert(std::move(t), p, n.nw, box);
       } else if (n.nodeCount < nc) {
         n.nodes[n.nodeCount] = t;
+        glm::tvec2<F> ps = gxy.getPos(t);
+        n.hash ^= (std::hash<F>{}(ps.x) << 1) ^ std::hash<F>{}(ps.y);
         ++n.nodeCount;
-      } else {
+      } else if (n.hash != 0) {
         // Leaf is full!
         // Split into multiple trees.
         I nw = createNode();
@@ -260,6 +272,14 @@ namespace zekku {
           insertStem(std::move(sub), ps, n, box);
         }
         insertStem(std::move(t), p, n, box);
+      } else {
+        // Leaf is full, and chances are:
+        // Either all four points are the same, or
+        // Two points are the same, and two others are too
+        n.nodeCount = LINK;
+        I nw = createNode();
+        n.nw = nw;
+        insert(std::move(t), p, n.nw, box);
       }
     }
 #undef n
@@ -276,6 +296,12 @@ namespace zekku {
         query(shape, out, n.ne, box.ne());
         query(shape, out, n.sw, box.sw());
         query(shape, out, n.se, box.se());
+      } else if (n.nodeCount == LINK) {
+        for (I i = 0; i < nc; ++i) {
+          if (shape.contains(gxy.getPos(n.nodes[i])))
+            out.push_back({root, i});
+        }
+        query(shape, out, n.nw, box);
       } else {
         // Leaf
         for (I i = 0; i < n.nodeCount; ++i) {
@@ -297,6 +323,12 @@ namespace zekku {
         query(shape, callback, n.ne, box.ne());
         query(shape, callback, n.sw, box.sw());
         query(shape, callback, n.se, box.se());
+      } else if (n.nodeCount == LINK) {
+        for (I i = 0; i < nc; ++i) {
+          if (shape.contains(gxy.getPos(n.nodes[i])))
+            callback(n.nodes[i]);
+        }
+        query(shape, callback, n.nw, box);
       } else {
         // Leaf
         for (I i = 0; i < n.nodeCount; ++i) {
@@ -318,6 +350,12 @@ namespace zekku {
         querym(shape, callback, n.ne, box.ne());
         querym(shape, callback, n.sw, box.sw());
         querym(shape, callback, n.se, box.se());
+      } else if (n.nodeCount == LINK) {
+        for (I i = 0; i < nc; ++i) {
+          if (shape.contains(gxy.getPos(n.nodes[i])))
+            callback(n.nodes[i]);
+        }
+        querym(shape, callback, n.nw, box);
       } else {
         // Leaf
         for (I i = 0; i < n.nodeCount; ++i) {
@@ -334,17 +372,24 @@ namespace zekku {
         "; " <<  box.c[0] + box.s[0] << ", " << box.c[1] + box.s[1] << "] ";
     }
     void dump(I root, AABB<F> box, size_t s = 0) const {
-      const Node& n = nodes.get(root);
-      if (n.nodeCount == NOWHERE) {
+      const Node* n = &nodes.get(root);
+      if (n->nodeCount == NOWHERE) {
         std::cerr << "Stem "; printAABB(box); std::cerr << ":\n";
-        indent(s); std::cerr << "NW "; dump(n.nw, box.nw(), s + 1);
-        indent(s); std::cerr << "SW "; dump(n.sw, box.sw(), s + 1);
-        indent(s); std::cerr << "NE "; dump(n.ne, box.ne(), s + 1);
-        indent(s); std::cerr << "SE "; dump(n.se, box.se(), s + 1);
+        indent(s); std::cerr << "NW "; dump(n->nw, box.nw(), s + 1);
+        indent(s); std::cerr << "SW "; dump(n->sw, box.sw(), s + 1);
+        indent(s); std::cerr << "NE "; dump(n->ne, box.ne(), s + 1);
+        indent(s); std::cerr << "SE "; dump(n->se, box.se(), s + 1);
       } else {
         std::cerr << "Leaf "; printAABB(box); std::cerr << ":";
-        for (size_t i = 0; i < n.nodeCount; ++i) {
-          glm::tvec2<F> p = gxy.getPos(n.nodes[i]);
+        while (n->nodeCount == LINK) {
+          for (size_t i = 0; i < nc; ++i) {
+            glm::tvec2<F> p = gxy.getPos(n->nodes[i]);
+            std::cerr << " (" << p.x << ", " << p.y << ")";
+          }
+          n = &nodes.get(n->nw);
+        }
+        for (size_t i = 0; i < n->nodeCount; ++i) {
+          glm::tvec2<F> p = gxy.getPos(n->nodes[i]);
           std::cerr << " (" << p.x << ", " << p.y << ")";
         }
         std::cerr << "\n";

@@ -122,9 +122,32 @@ void testQTree() {
     ints, iters, elapsed.count());
 }
 
+constexpr size_t NPOINT_PATHO = 50;
+void testQTreePathological() {
+  std::cerr << "Testing nasty cases...\n";
+  zekku::QuadTree<Pair> tree({{0.0f, 0.0f}, {100.0f, 100.0f}});
+  for (size_t i = 0; i < NPOINT_PATHO; ++i) {
+    tree.insert({1.0f, 0.5f});
+  }
+  std::cerr << "No crash!\n";
+  std::vector<zekku::Handle<uint16_t>> handles;
+  tree.query(zekku::QueryAll<float>(), handles);
+  if (handles.size() != NPOINT_PATHO) {
+    fprintf(stderr,
+      "Querying returned %zu handles (%zu expected).\n",
+      handles.size(),
+      NPOINT_PATHO
+    );
+    tree.dump();
+  } else {
+    std::cerr << "Querying went fine!\n";
+  }
+}
+
 int main() {
   printf("Testing...\n");
   testPool();
   testQTree();
+  testQTreePathological();
   return 0;
 }
