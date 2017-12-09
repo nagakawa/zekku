@@ -19,19 +19,42 @@ namespace zekku {
   T* trealloc(T* p, size_t elems) {
     return (T*) ::realloc(p, elems * sizeof(T));
   }
+  // ------------------
+  // Helper methods for destroying array
+  // This is a bit confusing. Basically, the first overload is called
+  // if T is not trivially destructible, and the second otherwise.
+  template<typename T,
+    typename std::enable_if<
+      !std::is_trivially_destructible<T>::value, int>::type = 0>
+  void freeElems(T* elems, bool* allocated, size_t size) {
+    for (size_t i = 0; i < size; ++i) {
+      if (!allocated[i]) {
+        elems[i].~T();
+      }
+    }
+  }
+  template<typename T,
+    typename std::enable_if<
+      std::is_trivially_destructible<T>::value, int>::type = 0>
+  void freeElems(T* elems, bool* allocated, size_t size) {}
+  // ------------------
   constexpr size_t START_CAPAT = 64;
   template<typename T>
   class Pool {
   public:
-    static_assert(std::is_trivially_copyable<T>::value,
-      "Your T is not trivially copyable, dum dum!");
+    // static_assert(std::is_trivially_copyable<T>::value,
+    //   "Your T is not trivially copyable, dum dum!");
     Pool() : filled(0), capacity(START_CAPAT),
         elems(tmalloc<T>(START_CAPAT)),
         allocated(tmalloc<bool>(START_CAPAT)) {
       r.seed(time(nullptr));
       memset(allocated, 0, START_CAPAT * sizeof(bool));
     }
-    ~Pool() { ::free(elems); ::free(allocated); }
+    ~Pool() {
+      freeElems(elems, allocated, capacity);
+      ::free(elems);
+      ::free(allocated);
+    }
     Pool(const Pool& other) = delete;
     Pool& operator=(const Pool& other) = delete;
     Pool(Pool&& other) :
