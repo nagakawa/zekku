@@ -255,7 +255,7 @@ namespace zekku {
         glm::tvec2<F> ps = gxy.getPos(t);
         n.hash ^= (std::hash<F>{}(ps.x) << 1) ^ std::hash<F>{}(ps.y);
         ++n.nodeCount;
-        return { root, n.nodeCount - 1 };
+        return { root, (I) (n.nodeCount - 1) };
       } else if (n.hash != 0) {
         // Leaf is full!
         // Split into multiple trees.
