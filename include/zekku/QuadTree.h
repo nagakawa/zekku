@@ -138,11 +138,11 @@ namespace zekku {
       gxy = other.gxy;
       return *this;
     }
-    void insert(const T& t) {
+    Handle<I> insert(const T& t) {
       T t2 = t;
-      insert(std::move(t2));
+      return insert(std::move(t2));
     }
-    void insert(T&& t) {
+    Handle<I> insert(T&& t) {
       glm::tvec2<F> p = gxy.getPos(t);
       if (!box.contains(p)) {
         std::cerr << "(" << p[0] << ", " << p[1] << ") is out of range!\n";
@@ -150,8 +150,9 @@ namespace zekku {
         std::cerr << "with w = " << box.s[0] << " and h = " << box.s[1] << "\n";
         exit(-1);
       }
-      insert(std::move(t), p, root, box);
-      assert(nodes.getCapacity() <= 65536);
+      Handle<I> h = insert(std::move(t), p, root, box);
+      assert(nodes.getCapacity() <= std::numeric_limits<I>::max());
+      return h;
     }
     const T& deref(const Handle<I>& h) const {
       return nodes.get(h.nodeid).nodes[h.index];
@@ -233,27 +234,28 @@ namespace zekku {
       nodes.get(i).nodeCount = 0;
       return (I) i;
     }
-    void insertStem(T&& t, glm::tvec2<F> p, Node& n, AABB<F> box) {
+    Handle<I> insertStem(T&& t, glm::tvec2<F> p, Node& n, AABB<F> box) {
       if (p.x < box.c.x) { // West
-        if (p.y < box.c.y) insert(std::move(t), p, n.nw, box.nw());
-        else insert(std::move(t), p, n.sw, box.sw());
+        if (p.y < box.c.y) return insert(std::move(t), p, n.nw, box.nw());
+        else return insert(std::move(t), p, n.sw, box.sw());
       } else { // East
-        if (p.y < box.c.y) insert(std::move(t), p, n.ne, box.ne());
-        else insert(std::move(t), p, n.se, box.se());
+        if (p.y < box.c.y) return insert(std::move(t), p, n.ne, box.ne());
+        else return insert(std::move(t), p, n.se, box.se());
       }
     }
 #define n (nodes.get(root))
     // Insert an element in the qtree
-    void insert(T&& t, glm::tvec2<F> p, I root, AABB<F> box) {
+    Handle<I> insert(T&& t, glm::tvec2<F> p, I root, AABB<F> box) {
       if (n.nodeCount == NOWHERE) {
-        insertStem(std::move(t), p, n, box);
+        return insertStem(std::move(t), p, n, box);
       } else if (n.nodeCount == LINK) {
-        insert(std::move(t), p, n.nw, box);
+        return insert(std::move(t), p, n.nw, box);
       } else if (n.nodeCount < nc) {
-        n.nodes[n.nodeCount] = t;
+        n.nodes[n.nodeCount] = std::move(t);
         glm::tvec2<F> ps = gxy.getPos(t);
         n.hash ^= (std::hash<F>{}(ps.x) << 1) ^ std::hash<F>{}(ps.y);
         ++n.nodeCount;
+        return { root, n.nodeCount - 1 };
       } else if (n.hash != 0) {
         // Leaf is full!
         // Split into multiple trees.
@@ -271,7 +273,7 @@ namespace zekku {
           glm::tvec2<F> ps = gxy.getPos(sub);
           insertStem(std::move(sub), ps, n, box);
         }
-        insertStem(std::move(t), p, n, box);
+        return insertStem(std::move(t), p, n, box);
       } else {
         // Leaf is full, and chances are:
         // Either all four points are the same, or
@@ -279,7 +281,7 @@ namespace zekku {
         n.nodeCount = LINK;
         I nw = createNode();
         n.nw = nw;
-        insert(std::move(t), p, n.nw, box);
+        return insert(std::move(t), p, n.nw, box);
       }
     }
 #undef n
