@@ -47,6 +47,22 @@ namespace zekku {
         (std::abs(c.x - p.c.x) <= (s.x + p.s.x)) &&
         (std::abs(c.y - p.c.y) <= (s.y + p.s.y));
     }
+    size_t getClass(glm::tvec2<F> p) const {
+      bool east = p.x > c.x;
+      bool south = p.y > c.y;
+      return (south << 1) | east;
+    }
+    AABB getSubboxByClass(size_t cl) const {
+      bool east = (cl & 1);
+      bool south = (cl & 2) >> 1;
+      glm::tvec2<F> dir{
+        (float) ((east << 1) - 1), (float) ((south << 1) - 1)};
+      glm::tvec2<F> halfs = s * F{0.5};
+      return {
+        c + halfs * dir,
+        halfs
+      };
+    }
   };
   template<typename F = float>
   struct CircleQuery {
@@ -106,7 +122,7 @@ namespace zekku {
       return (std::hash<I>(h.nodeid) << 1) ^ std::hash<I>(h.index);
     }
   };
-  constexpr size_t QUADTREE_NODE_COUNT = 4;
+  constexpr size_t QUADTREE_NODE_COUNT = 32;
   template<
     typename T,
     typename I = uint16_t,
@@ -213,7 +229,7 @@ namespace zekku {
     class Node {
     public:
       Node() :
-        nw(NOWHERE), sw(NOWHERE), ne(NOWHERE), se(NOWHERE),
+        children{NOWHERE, NOWHERE, NOWHERE, NOWHERE},
         nodeCount(0), hash(0) {}
       T nodes[nc];
       // The following fields are unspecified if nodeCount < nc.
@@ -221,7 +237,7 @@ namespace zekku {
       // nodes and the rest of the fields are unspecified.
       // If nodeCount == NOWHERE, then the fields point to the four
       // child quadtrants of this node.
-      I nw, sw, ne, se;
+      I children[4];
       I nodeCount; // Set to NOWHERE if not a leaf.
       size_t hash;
     };
@@ -234,22 +250,17 @@ namespace zekku {
       nodes.get(i).nodeCount = 0;
       return (I) i;
     }
-    Handle<I> insertStem(T&& t, glm::tvec2<F> p, Node& n, AABB<F> box) {
-      if (p.x < box.c.x) { // West
-        if (p.y < box.c.y) return insert(std::move(t), p, n.nw, box.nw());
-        else return insert(std::move(t), p, n.sw, box.sw());
-      } else { // East
-        if (p.y < box.c.y) return insert(std::move(t), p, n.ne, box.ne());
-        else return insert(std::move(t), p, n.se, box.se());
-      }
+    Handle<I> insertStem(T&& t, glm::tvec2<F>& p, Node& n, AABB<F> box) {
+      size_t c = box.getClass(p);
+      return insert(std::move(t), p, n.children[c], box.getSubboxByClass(c));
     }
 #define n (nodes.get(root))
     // Insert an element in the qtree
-    Handle<I> insert(T&& t, glm::tvec2<F> p, I root, AABB<F> box) {
+    Handle<I> insert(T&& t, glm::tvec2<F>& p, I root, AABB<F> box) {
       if (n.nodeCount == NOWHERE) {
         return insertStem(std::move(t), p, n, box);
       } else if (n.nodeCount == LINK) {
-        return insert(std::move(t), p, n.nw, box);
+        return insert(std::move(t), p, n.children[0], box);
       } else if (n.nodeCount < nc) {
         n.nodes[n.nodeCount] = std::move(t);
         glm::tvec2<F> ps = gxy.getPos(t);
@@ -263,10 +274,10 @@ namespace zekku {
         I ne = createNode();
         I sw = createNode();
         I se = createNode();
-        n.nw = nw;
-        n.ne = ne;
-        n.sw = sw;
-        n.se = se;
+        n.children[0] = nw;
+        n.children[1] = ne;
+        n.children[2] = sw;
+        n.children[3] = se;
         n.nodeCount = NOWHERE;
         for (size_t i = 0; i < nc; ++i) {
           T& sub = n.nodes[i];
@@ -276,12 +287,15 @@ namespace zekku {
         return insertStem(std::move(t), p, n, box);
       } else {
         // Leaf is full, and chances are:
-        // Either all four points are the same, or
-        // Two points are the same, and two others are too
+        // Either all n points are the same, or
+        // n/2 points are the same, and n/2 others are too
+        // (or other possibilities, but we're worried
+        // only about the first case since otherwise
+        // it'll cause a stack overflow)
         n.nodeCount = LINK;
         I nw = createNode();
-        n.nw = nw;
-        return insert(std::move(t), p, n.nw, box);
+        n.children[0] = nw;
+        return insert(std::move(t), p, n.children[0], box);
       }
     }
 #undef n
@@ -294,16 +308,16 @@ namespace zekku {
       const Node& n = nodes.get(root);
       if (n.nodeCount == NOWHERE) {
         // It is a stem
-        query(shape, out, n.nw, box.nw());
-        query(shape, out, n.ne, box.ne());
-        query(shape, out, n.sw, box.sw());
-        query(shape, out, n.se, box.se());
+        query(shape, out, n.children[0], box.nw());
+        query(shape, out, n.children[1], box.ne());
+        query(shape, out, n.children[2], box.sw());
+        query(shape, out, n.children[3], box.se());
       } else if (n.nodeCount == LINK) {
         for (I i = 0; i < nc; ++i) {
           if (shape.contains(gxy.getPos(n.nodes[i])))
             out.push_back({root, i});
         }
-        query(shape, out, n.nw, box);
+        query(shape, out, n.children[0], box);
       } else {
         // Leaf
         for (I i = 0; i < n.nodeCount; ++i) {
@@ -321,16 +335,16 @@ namespace zekku {
       const Node& n = nodes.get(root);
       if (n.nodeCount == NOWHERE) {
         // It is a stem
-        query(shape, callback, n.nw, box.nw());
-        query(shape, callback, n.ne, box.ne());
-        query(shape, callback, n.sw, box.sw());
-        query(shape, callback, n.se, box.se());
+        query(shape, callback, n.children[0], box.nw());
+        query(shape, callback, n.children[1], box.ne());
+        query(shape, callback, n.children[2], box.sw());
+        query(shape, callback, n.children[3], box.se());
       } else if (n.nodeCount == LINK) {
         for (I i = 0; i < nc; ++i) {
           if (shape.contains(gxy.getPos(n.nodes[i])))
             callback(n.nodes[i]);
         }
-        query(shape, callback, n.nw, box);
+        query(shape, callback, n.children[0], box);
       } else {
         // Leaf
         for (I i = 0; i < n.nodeCount; ++i) {
@@ -348,16 +362,16 @@ namespace zekku {
       Node& n = nodes.get(root);
       if (n.nodeCount == NOWHERE) {
         // It is a stem
-        querym(shape, callback, n.nw, box.nw());
-        querym(shape, callback, n.ne, box.ne());
-        querym(shape, callback, n.sw, box.sw());
-        querym(shape, callback, n.se, box.se());
+        querym(shape, callback, n.children[0], box.nw());
+        querym(shape, callback, n.children[1], box.ne());
+        querym(shape, callback, n.children[2], box.sw());
+        querym(shape, callback, n.children[3], box.se());
       } else if (n.nodeCount == LINK) {
         for (I i = 0; i < nc; ++i) {
           if (shape.contains(gxy.getPos(n.nodes[i])))
             callback(n.nodes[i]);
         }
-        querym(shape, callback, n.nw, box);
+        querym(shape, callback, n.children[0], box);
       } else {
         // Leaf
         for (I i = 0; i < n.nodeCount; ++i) {
@@ -377,13 +391,16 @@ namespace zekku {
       const Node* n = &nodes.get(root);
       if (n->nodeCount == NOWHERE) {
         std::cerr << "Stem "; printAABB(box); std::cerr << ":\n";
-        indent(s); std::cerr << "NW "; dump(n->nw, box.nw(), s + 1);
-        indent(s); std::cerr << "SW "; dump(n->sw, box.sw(), s + 1);
-        indent(s); std::cerr << "NE "; dump(n->ne, box.ne(), s + 1);
-        indent(s); std::cerr << "SE "; dump(n->se, box.se(), s + 1);
+        for (size_t i = 0; i < 4; ++i) {
+          indent(s);
+          std::cerr << 
+            ((i & 2) != 0 ? 'S' : 'N') <<
+            ((i & 1) != 0 ? 'E' : 'W') << ' ';
+            dump(n->children[i], box.getSubboxByClass(i), s + 1);
+        }
       } else {
         const Node* end = n;
-        while (end->nodeCount == LINK) end = &nodes.get(end->nw);
+        while (end->nodeCount == LINK) end = &nodes.get(end->children[0]);
         if (end->nodeCount == NOWHERE) {
           std::cerr << "Stem (with overflow nodes) "; printAABB(box); std::cerr << ":";
         } else {
@@ -394,14 +411,17 @@ namespace zekku {
             glm::tvec2<F> p = gxy.getPos(n->nodes[i]);
             std::cerr << " (" << p.x << ", " << p.y << ")";
           }
-          n = &nodes.get(n->nw);
+          n = &nodes.get(n->children[0]);
         }
         if (n->nodeCount == NOWHERE) {
           std::cerr << '\n';
-          indent(s); std::cerr << "NW "; dump(n->nw, box.nw(), s + 1);
-          indent(s); std::cerr << "SW "; dump(n->sw, box.sw(), s + 1);
-          indent(s); std::cerr << "NE "; dump(n->ne, box.ne(), s + 1);
-          indent(s); std::cerr << "SE "; dump(n->se, box.se(), s + 1);
+          for (size_t i = 0; i < 4; ++i) {
+            indent(s);
+            std::cerr << 
+              ((i & 2) != 0 ? 'S' : 'N') <<
+              ((i & 1) != 0 ? 'E' : 'W') << ' ';
+              dump(n->children[i], box.getSubboxByClass(i), s + 1);
+          }
         } else {
           for (size_t i = 0; i < n->nodeCount; ++i) {
             glm::tvec2<F> p = gxy.getPos(n->nodes[i]);
