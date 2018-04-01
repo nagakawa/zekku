@@ -42,6 +42,13 @@ namespace zekku {
         p.y >= c.y - s.y &&
         p.y <= c.y + s.y;
     }
+    bool contains(const AABB<F>& p) const {
+      return
+        p.c.x - p.s.x >= c.x - s.x &&
+        p.c.x + p.s.x <= c.x + s.x &&
+        p.c.y - p.s.y >= c.y - s.y &&
+        p.c.y + p.s.y <= c.y + s.y;
+    }
     bool intersects(const AABB<F>& p) const {
       return
         (std::abs(c.x - p.c.x) <= (s.x + p.s.x)) &&

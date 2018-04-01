@@ -9,6 +9,7 @@
 
 #include "zekku/Pool.h"
 #include "zekku/QuadTree.h"
+#include "zekku/BoxQuadTree.h"
 
 constexpr size_t hc = 65536;
 
@@ -144,10 +145,33 @@ void testQTreePathological() {
   }
 }
 
+void testBBQTree() {
+  std::cerr << "Testing bounding box quadtree...\n";
+  zekku::BoxQuadTree<
+    zekku::AABB<float>,
+    /* I = */ uint16_t,
+    /* F = */ float,
+    /* nc = */ zekku::QUADTREE_NODE_COUNT,
+    /* GetBB = */ zekku::AABBGetBB<float>
+  > tree({{0.0f, 0.0f}, {100.0f, 100.0f}});
+  std::mt19937_64 r; // Ugh, C++ random number generation is a PITA.
+  r.seed(time(nullptr));
+  std::uniform_real_distribution<float> rd(-1.0f, 1.0f);
+  std::vector<zekku::AABB<float>> boxes(10000);
+  for (auto& box : boxes) {
+    box.c = { 50 * rd(r), 50 * rd(r) };
+    box.s = { 2.5 + 2.5 * rd(r), 2.5 + 2.5 * rd(r) };
+  }
+  for (const auto& box : boxes) {
+    tree.insert(box);
+  }
+}
+
 int main() {
   printf("Testing...\n");
   testPool();
   testQTree();
   testQTreePathological();
+  testBBQTree(); // Mmm
   return 0;
 }

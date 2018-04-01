@@ -1,0 +1,232 @@
+#pragma once
+
+#ifndef ZEKKU_BOX_QUADTREE_H
+#define ZEKKU_BOX_QUADTREE_H
+#include <assert.h>
+#include <stddef.h>
+#include <stdint.h>
+#include <algorithm>
+#include <cmath>
+#include <functional>
+#include <iostream>
+#include <limits>
+#include <type_traits>
+#include <glm/glm.hpp>
+#include "zekku/Pool.h"
+#include "zekku/QuadTree.h"
+
+namespace zekku {
+  template<typename T, typename F = float>
+  struct DefaultGetBB {
+    static_assert(std::is_floating_point<F>::value,
+      "Your F is not a floating-point number, dum dum!");
+    AABB<F> getBox(T t) const { return t.box; }
+  };
+  // Yes, this sounds pretty silly.
+  template<typename F = float>
+  struct AABBGetBB {
+    static_assert(std::is_floating_point<F>::value,
+      "Your F is not a floating-point number, dum dum!");
+    AABB<F> getBox(AABB<F> t) const { return t; }
+  };
+  template<typename F>
+  struct BBHash {
+    size_t operator()(const AABB<F>& box) const {
+      return
+        (std::hash<F>()(box.c.x) << 3) ^
+        (std::hash<F>()(box.c.y) << 2) ^
+        (std::hash<F>()(box.s.x) << 1) ^
+        (std::hash<F>()(box.s.y));
+    }
+  };
+  struct BBHandle {
+    size_t index;
+    bool operator==(const BBHandle& other) const {
+      return index == other.index;
+    }
+    bool operator<(const BBHandle& other) const {
+      return index < other.index;
+    }
+  };
+  struct BBHandleHasher {
+    size_t operator()(const BBHandle& h) {
+      return std::hash<size_t>()(h.index);
+    }
+  };
+  /*
+    Bounding box-based quadtree based on the existing point quadtree
+    implementation and a Python implementation of a BB quadtree here:
+    https://www.pygame.org/wiki/QuadTree
+  */
+  template<
+    typename T,
+    typename I = uint16_t,
+    typename F = float,
+    size_t nc = QUADTREE_NODE_COUNT,
+    typename GetBB = DefaultGetBB<T, F>
+  >
+  class BoxQuadTree {
+  public:
+    static_assert(std::is_integral<I>::value,
+      "Your I is not an integer, dum dum!");
+    static_assert(std::is_unsigned<I>::value,
+      "Don't use a signed int for sizes, dum dum!");
+    static_assert(std::is_floating_point<F>::value,
+      "Your F is not a floating-point number, dum dum!");
+    template<typename... Args>
+    BoxQuadTree(const AABB<F>& box, Args&&... args) :
+        root((I) nodes.allocate()), box(box), gbox(args...) {}
+    BoxQuadTree(QuadTree<T, I, F, nc, GetBB>&& other) :
+        nodes(std::move(other.nodes)), root(other.root),
+        box(other.box), gbox(other.gbox) {
+      other.root = (I) other.nodes.allocate();
+    }
+    BBHandle insert(const T& t) {
+      T t2 = t;
+      return insert(std::move(t2));
+    }
+    BBHandle insert(T&& t) {
+      AABB<F> p = gbox.getBox(t);
+      if (!box.contains(p)) {
+        std::cerr << "(" << p.c.x << ", " << p.c.y << ") +/- (";
+        std::cerr << p.s.x << ", " << p.s.y;
+        std::cerr << ") is out of range!\n";
+        std::cerr << "Box is centred at (" << box.c[0] << ", " << box.c[1] << ") ";
+        std::cerr << "with w = " << box.s[0] << " and h = " << box.s[1] << "\n";
+        exit(-1);
+      }
+      size_t ti = canonicals.allocate(std::move(t));
+      BBHandle h = insert(canonicals.get(ti), ti, p, root, box);
+      assert(nodes.getCapacity() <= std::numeric_limits<I>::max());
+      return h;
+    }
+  private:
+    static constexpr I MASK = 0x3FFF;
+    static constexpr I NOWHERE = 0x4000;
+    static constexpr I LINK = 0x8000;
+    class Node {
+    public:
+      Node() :
+        children{NOWHERE, NOWHERE, NOWHERE, NOWHERE},
+        nodeCount(0), hash(0) {}
+      size_t nodes[nc]; // Indices to `canonicals`
+      // The following fields are unspecified if nodeCount < nc.
+      // If (nodeCount & LINK) != 0, then children[0] contains the node with 
+      // additional nodes and the rest of the fields are unspecified.
+      // If (nodeCount & NOWHERE) != 0, then the fields point to the four
+      // child quadtrants of this node.
+      // If (nodeCount & LINK) == 0, then (nodeCount & MASK) stores
+      // the number of nodes stored in the `nodes` array.
+      // NOWHERE and LINK cannot be set at the same time.
+      // (This implies that if you encounter a LINK node during insertion,
+      // you have to slog through it [and possibly even more LINKs]
+      // before you can see the children of the node, but this
+      // simplifies the logic.)
+      I children[4];
+      I nodeCount; // Set to NOWHERE if not a leaf.
+      size_t hash;
+    };
+    Pool<Node> nodes;
+    Pool<T> canonicals;
+    I root;
+    AABB<F> box;
+    GetBB gbox;
+    I createNode() {
+      size_t i = nodes.allocate();
+      nodes.get(i).nodeCount = 0;
+      return (I) i;
+    }
+#define n (nodes.get(root))
+#define isNowhere ((n.nodeCount & NOWHERE) != 0)
+#define isLink    ((n.nodeCount & LINK) != 0)
+#define numNodes (n.nodeCount & MASK)
+    BBHandle insertStem(
+        const T& t, size_t ti, const AABB<F>& p,
+        size_t root,
+        AABB<F> box) {
+      // Find out which subboxes this object intersects
+      bool intersect[4];
+      for (size_t i = 0; i < 4; ++i) {
+        intersect[i] = box.getSubboxByClass(i).intersects(p);
+      }
+      // Intersects every quadrant?
+      if (intersect[0] && intersect[1] && intersect[2] && intersect[3]) {
+        return insert(t, ti, p, root, box, true);
+      }
+      // Otherwise...
+      bool intersected = false;
+      for (size_t i = 0; i < 4; ++i) {
+        if (intersect[i]) {
+          insert(t, ti, p, n.children[i], box.getSubboxByClass(i));
+          intersected = true;
+        }
+      }
+      assert(intersected);
+      // We can just return ti
+      // since that's the index into the `canonicals` array
+      return { ti };
+    }
+    // Insert an element in the qtree.
+    // If forceHere is true, then the node will be created on this
+    // node and nowhere else, possibly creating a link node.
+    BBHandle insert(
+        const T& t, size_t ti, const AABB<F>& p,
+        I root,
+        AABB<F> box,
+        bool forceHere = false) {
+      while (isLink) root = n.children[0];
+      if (isNowhere && !forceHere) {
+        assert(!isLink);
+        return insertStem(t, ti, p, root, box);
+      }
+      if (numNodes < nc) {
+        n.nodes[numNodes] = ti;
+        AABB<F> bb = gbox.getBox(t);
+        n.hash ^= BBHash<F>()(bb);
+        ++n.nodeCount;
+        return { ti };
+      } else if (n.hash != 0 && !isLink && !forceHere) {
+        // Leaf is full!
+        // Split into multiple trees.
+        I nw = createNode();
+        I ne = createNode();
+        I sw = createNode();
+        I se = createNode();
+        n.children[0] = nw;
+        n.children[1] = ne;
+        n.children[2] = sw;
+        n.children[3] = se;
+        n.nodeCount = NOWHERE;
+        for (size_t i = 0; i < nc; ++i) {
+          size_t subi = n.nodes[i];
+          const T& sub = canonicals.get(subi);
+          AABB<F> ps = gbox.getBox(sub);
+          insertStem(sub, subi, ps, root, box);
+        }
+        return insertStem(t, ti, p, root, box);
+      } else {
+        // Leaf is full, and chances are:
+        // Either all n points are the same, or
+        // we have a false positive of the above,
+        // or forceHere is true
+        // (in which case isNowhere might be true as well)
+        I nw = createNode(); // Create a node for overflow
+        Node& nwNode = nodes.get(nw);
+        // Transfer children from n to nw (if any)
+        if (isNowhere) {
+          nwNode.nodeCount = NOWHERE;
+          memcpy(nwNode.children, n.children, 4 * sizeof(I));
+        }
+        n.children[0] = nw;
+        n.nodeCount = LINK;
+        return insert(t, ti, p, n.children[0], box);
+      }
+    }
+#undef n
+#undef isNowhere
+#undef isLink
+#undef numNodes
+  };
+}
+
+#endif
