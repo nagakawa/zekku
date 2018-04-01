@@ -11,6 +11,13 @@
 #include "zekku/QuadTree.h"
 #include "zekku/BoxQuadTree.h"
 
+template<typename F>
+std::ostream& operator<<(std::ostream& fh, const zekku::AABB<F>& box) {
+  std::cerr << "[" << box.c[0] - box.s[0] << ", " << box.c[1] - box.s[1] <<
+    "; " <<  box.c[0] + box.s[0] << ", " << box.c[1] + box.s[1] << "]";
+  return fh;
+}
+
 constexpr size_t hc = 65536;
 
 void testPool() {
@@ -162,8 +169,50 @@ void testBBQTree() {
     box.c = { 50 * rd(r), 50 * rd(r) };
     box.s = { 2.5 + 2.5 * rd(r), 2.5 + 2.5 * rd(r) };
   }
+  Pair q = {50 * rd(r), 50 * rd(r)};
+  zekku::CircleQuery<float> query(glm::tvec2<float>{q.x, q.y}, 20.0f);
+  std::set<zekku::AABB<float>> nearPairs;
   for (const auto& box : boxes) {
     tree.insert(box);
+    if (query.intersects(box))
+      nearPairs.insert(box);
+  }
+  std::vector<zekku::BBHandle> handles;
+  tree.query(query, handles);
+  std::set<zekku::AABB<float>> actualNearPairs;
+  for (const auto& h : handles) {
+    const zekku::AABB<float>& p = tree.deref(h);
+    actualNearPairs.insert(p);
+  }
+  if (nearPairs != actualNearPairs) {
+    std::set<zekku::AABB<float>> nman, anmn;
+    std::set_difference(
+      nearPairs.begin(), nearPairs.end(),
+      actualNearPairs.begin(), actualNearPairs.end(),
+      std::inserter(nman, nman.end())
+    );
+    std::set_difference(
+      actualNearPairs.begin(), actualNearPairs.end(),
+      nearPairs.begin(), nearPairs.end(),
+      std::inserter(anmn, anmn.end())
+    );
+    std::cerr << "Sets differ:\nnot detected by bqtree:\n";
+    for (const zekku::AABB<float>& p : nman) {
+      std::cerr << p << " ";
+    }
+    std::cerr << "\nfalsely detected by bqtree:\n";
+    for (const zekku::AABB<float>& p : anmn) {
+      std::cerr << p << " ";
+    }
+    std::cerr << "\nWith the point (" <<
+      q.x << ", " << q.y << ")\n";
+    std::cerr << "Dumping tree...\n";
+    tree.dump();
+    handles.clear();
+    tree.query(zekku::QueryAll<float>(), handles);
+    std::cerr << "Total " << handles.size() << " elements\n";
+  } else {
+    std::cerr << "Sets are equal :)\n";
   }
 }
 

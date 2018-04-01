@@ -71,6 +71,26 @@ namespace zekku {
       };
     }
   };
+  template<typename F>
+  bool operator<(const glm::tvec2<F>& a, const glm::tvec2<F>& b) {
+    if (a.x < b.x) return true;
+    if (b.x < a.x) return false;
+    return a.y < b.y;
+  }
+  template<typename F>
+  bool operator==(const glm::tvec2<F>& a, const glm::tvec2<F>& b) {
+    return a.x == b.x && a.y == b.y;
+  }
+  template<typename F>
+  bool operator<(const AABB<F>& a, const AABB<F>& b) {
+    if (a.c < b.c) return true;
+    if (b.c < a.c) return false;
+    return a.s < b.s;
+  }
+  template<typename F>
+  bool operator==(const AABB<F>& a, const AABB<F>& b) {
+    return a.c == b.c && a.s == b.s;
+  }
   template<typename F = float>
   struct CircleQuery {
     CircleQuery(const glm::tvec2<F>& c, F r) : c(c), r(r) {}
@@ -301,6 +321,8 @@ namespace zekku {
         // it'll cause a stack overflow)
         n.nodeCount = LINK;
         I nw = createNode();
+        Node& nwNode = nodes.get(nw);
+        nwNode.nodeCount = 0;
         n.children[0] = nw;
         return insert(std::move(t), p, n.children[0], box);
       }

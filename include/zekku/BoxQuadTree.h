@@ -6,6 +6,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <algorithm>
+#include <bitset>
 #include <cmath>
 #include <functional>
 #include <iostream>
@@ -100,6 +101,29 @@ namespace zekku {
       assert(nodes.getCapacity() <= std::numeric_limits<I>::max());
       return h;
     }
+    const T& deref(const BBHandle& h) const {
+      return canonicals.get(h.index);
+    }
+    T& deref(const BBHandle& h) {
+      return canonicals.get(h.index);
+    }
+    template<typename Q = AABB<T>>
+    void query(const Q& shape, std::vector<BBHandle>& out) const {
+      auto callback = [&out](size_t ti, const T& /*t*/) {
+        out.push_back({ ti });
+      };
+      query(shape, callback, root, box);
+    }
+    template<typename Q = AABB<T>, typename C>
+    void query(const Q& shape, C callback) const {
+      auto rawCallback = [&callback, this] (size_t /*ti*/, const T& t) {
+        callback(t);
+      };
+      query(shape, rawCallback, root, box);
+    }
+    void dump() const {
+      dump(root, box);
+    }
   private:
     static constexpr I MASK = 0x3FFF;
     static constexpr I NOWHERE = 0x4000;
@@ -110,6 +134,11 @@ namespace zekku {
         children{NOWHERE, NOWHERE, NOWHERE, NOWHERE},
         nodeCount(0), hash(0) {}
       size_t nodes[nc]; // Indices to `canonicals`
+      // If there are duplicates of an object in a quadtree, only
+      // one node in the tree will have the corresponding `echo[i]`
+      // be false. The rest will have the element set to `true` to
+      // avoid double-counting in the query methods.
+      std::bitset<nc> echo;
       // The following fields are unspecified if nodeCount < nc.
       // If (nodeCount & LINK) != 0, then children[0] contains the node with 
       // additional nodes and the rest of the fields are unspecified.
@@ -143,7 +172,8 @@ namespace zekku {
     BBHandle insertStem(
         const T& t, size_t ti, const AABB<F>& p,
         size_t root,
-        AABB<F> box) {
+        AABB<F> box,
+        bool echo) {
       // Find out which subboxes this object intersects
       bool intersect[4];
       for (size_t i = 0; i < 4; ++i) {
@@ -151,13 +181,17 @@ namespace zekku {
       }
       // Intersects every quadrant?
       if (intersect[0] && intersect[1] && intersect[2] && intersect[3]) {
-        return insert(t, ti, p, root, box, true);
+        return insert(t, ti, p, root, box, echo, true);
       }
       // Otherwise...
       bool intersected = false;
       for (size_t i = 0; i < 4; ++i) {
         if (intersect[i]) {
-          insert(t, ti, p, n.children[i], box.getSubboxByClass(i));
+          insert(
+            t, ti, p,
+            n.children[i],
+            box.getSubboxByClass(i),
+            echo || intersected);
           intersected = true;
         }
       }
@@ -173,16 +207,18 @@ namespace zekku {
         const T& t, size_t ti, const AABB<F>& p,
         I root,
         AABB<F> box,
+        bool echo = false,
         bool forceHere = false) {
       while (isLink) root = n.children[0];
       if (isNowhere && !forceHere) {
         assert(!isLink);
-        return insertStem(t, ti, p, root, box);
+        return insertStem(t, ti, p, root, box, echo);
       }
       if (numNodes < nc) {
         n.nodes[numNodes] = ti;
         AABB<F> bb = gbox.getBox(t);
         n.hash ^= BBHash<F>()(bb);
+        n.echo[numNodes] = echo;
         ++n.nodeCount;
         return { ti };
       } else if (n.hash != 0 && !isLink && !forceHere) {
@@ -201,9 +237,9 @@ namespace zekku {
           size_t subi = n.nodes[i];
           const T& sub = canonicals.get(subi);
           AABB<F> ps = gbox.getBox(sub);
-          insertStem(sub, subi, ps, root, box);
+          insertStem(sub, subi, ps, root, box, echo);
         }
-        return insertStem(t, ti, p, root, box);
+        return insertStem(t, ti, p, root, box, echo);
       } else {
         // Leaf is full, and chances are:
         // Either all n points are the same, or
@@ -216,16 +252,93 @@ namespace zekku {
         if (isNowhere) {
           nwNode.nodeCount = NOWHERE;
           memcpy(nwNode.children, n.children, 4 * sizeof(I));
+        } else {
+          nwNode.nodeCount = 0;
         }
         n.children[0] = nw;
         n.nodeCount = LINK;
-        return insert(t, ti, p, n.children[0], box);
+        return insert(t, ti, p, n.children[0], box, echo);
       }
     }
 #undef n
 #undef isNowhere
 #undef isLink
 #undef numNodes
+    template<typename Q = AABB<T>, typename C>
+    void query(
+        const Q& shape, const C& callback,
+        I root, AABB<F> box) const {
+      // Abort if the query shape doesn't intersect the box
+      if (!shape.intersects(box)) return;
+      const Node* np = &(nodes.get(root));
+      while ((np->nodeCount & LINK) != 0) {
+        for (I i = 0; i < nc; ++i) {
+          size_t ni = np->nodes[i];
+          const T& n = canonicals.get(ni);
+          if (shape.intersects(gbox.getBox(n)))
+            callback(ni, n);
+        }
+        np = &(nodes.get(np->children[0]));
+      }
+      if ((np->nodeCount & NOWHERE) != 0) {
+        // Stem (and possibly a leaf)
+        query(shape, callback, np->children[0], box.nw());
+        query(shape, callback, np->children[1], box.ne());
+        query(shape, callback, np->children[2], box.sw());
+        query(shape, callback, np->children[3], box.se());
+      }
+      for (I i = 0; i < (np->nodeCount & MASK); ++i) {
+        size_t ni = np->nodes[i];
+        const T& n = canonicals.get(ni);
+        if (shape.intersects(gbox.getBox(n)))
+          callback(ni, n);
+      }
+    }
+    // Stuff for dumping
+    static void indent(size_t n) {
+      for (size_t i = 0; i < n; ++i) std::cerr << ' ';
+    }
+    static void printAABB(const AABB<F>& box) {
+      std::cerr << "[" << box.c[0] - box.s[0] << ", " << box.c[1] - box.s[1] <<
+        "; " <<  box.c[0] + box.s[0] << ", " << box.c[1] + box.s[1] << "] ";
+    }
+    void dump(I root, AABB<F> box, size_t s = 0) const {
+      const Node* n = &nodes.get(root);
+      const Node* end = n;
+      while ((end->nodeCount & LINK) != 0) end = &nodes.get(end->children[0]);
+      if ((end->nodeCount & NOWHERE) != 0) {
+        std::cerr << "Stem (with overflow nodes) "; printAABB(box); std::cerr << ": ";
+      } else {
+        std::cerr << "Leaf "; printAABB(box); std::cerr << ": ";
+      }
+      while ((n->nodeCount & LINK) != 0) {
+        for (size_t i = 0; i < nc; ++i) {
+          AABB<F> p = gbox.getBox(canonicals.get(n->nodes[i]));
+          printAABB(p);
+          if (n->echo[i]) std::cerr << "(echo) ";
+        }
+        n = &nodes.get(n->children[0]);
+      }
+      if ((n->nodeCount & NOWHERE) != 0) {
+        std::cerr << '\n';
+        for (size_t i = 0; i < 4; ++i) {
+          indent(s);
+          std::cerr << 
+            ((i & 2) != 0 ? 'S' : 'N') <<
+            ((i & 1) != 0 ? 'E' : 'W') << ' ';
+            dump(n->children[i], box.getSubboxByClass(i), s + 1);
+        }
+      }
+      if (n->nodeCount != NOWHERE) {
+        for (size_t i = 0; i < (n->nodeCount & MASK); ++i) {
+          AABB<F> p = gbox.getBox(canonicals.get(n->nodes[i]));
+          printAABB(p);
+          if (n->echo[i]) std::cerr << "(echo) ";
+        }
+      }
+      std::cerr << "\n";
+      indent(s);
+    }
   };
 }
 
