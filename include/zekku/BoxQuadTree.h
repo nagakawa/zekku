@@ -157,11 +157,6 @@ namespace zekku {
         children{NOWHERE, NOWHERE, NOWHERE, NOWHERE},
         nodeCount(0), hash(0) {}
       size_t nodes[nc]; // Indices to `canonicals`
-      // If there are duplicates of an object in a quadtree, only
-      // one node in the tree will have the corresponding `echo[i]`
-      // be false. The rest will have the element set to `true` to
-      // avoid double-counting in the query methods.
-      std::bitset<nc> echo;
       // The following fields are unspecified if nodeCount < nc.
       // If (nodeCount & LINK) != 0, then children[0] contains the node with 
       // additional nodes and the rest of the fields are unspecified.
@@ -200,8 +195,7 @@ namespace zekku {
     BBHandle insertStem(
         const T& t, uint32_t ti, const AABB<F>& p,
         size_t root,
-        AABB<F> box,
-        bool echo) {
+        AABB<F> box) {
       // Find out which subboxes this object intersects
       assert(box.intersects(p));
       bool intersect[4];
@@ -210,18 +204,15 @@ namespace zekku {
       }
       // Intersects every quadrant?
       if (intersect[0] && intersect[1] && intersect[2] && intersect[3]) {
-        return insert(t, ti, p, root, box, echo, true);
+        return insert(t, ti, p, root, box, true);
       }
       // Otherwise...
-      bool intersected = false;
       for (size_t i = 0; i < 4; ++i) {
         if (intersect[i]) {
           insert(
             t, ti, p,
             n.children[i],
-            box.getSubboxByClass(i),
-            echo || intersected);
-          intersected = true;
+            box.getSubboxByClass(i));
         }
       }
       // By now, intersected *should* be true, but rounding errors
@@ -238,18 +229,16 @@ namespace zekku {
         const T& t, uint32_t ti, const AABB<F>& p,
         I root,
         AABB<F> box,
-        bool echo = false,
         bool forceHere = false) {
       while (isLink) root = n.children[0];
       if (isNowhere && !forceHere) {
         assert(!isLink);
-        return insertStem(t, ti, p, root, box, echo);
+        return insertStem(t, ti, p, root, box);
       }
       if (numNodes < nc) {
         n.nodes[numNodes] = ti;
         AABB<F> bb = gbox.getBox(t);
         n.hash ^= BBHash<F>()(bb);
-        n.echo[numNodes] = echo;
         ++n.nodeCount;
         return { ti };
       } else if (n.hash != 0 && !isLink && !forceHere) {
@@ -268,9 +257,9 @@ namespace zekku {
           size_t subi = n.nodes[i];
           const T& sub = canonicals.get(subi);
           AABB<F> ps = gbox.getBox(sub);
-          insertStem(sub, subi, ps, root, box, echo);
+          insertStem(sub, subi, ps, root, box);
         }
-        return insertStem(t, ti, p, root, box, echo);
+        return insertStem(t, ti, p, root, box);
       } else {
         // Leaf is full, and chances are:
         // Either all n points are the same, or
@@ -288,7 +277,7 @@ namespace zekku {
         }
         n.children[0] = nw;
         n.nodeCount = LINK;
-        return insert(t, ti, p, n.children[0], box, echo);
+        return insert(t, ti, p, n.children[0], box);
       }
     }
 #undef n
@@ -346,7 +335,6 @@ namespace zekku {
         for (size_t i = 0; i < nc; ++i) {
           AABB<F> p = gbox.getBox(canonicals.get(n->nodes[i]));
           printAABB(p);
-          if (n->echo[i]) std::cerr << "(echo) ";
         }
         n = &nodes.get(n->children[0]);
       }
@@ -364,7 +352,6 @@ namespace zekku {
         for (size_t i = 0; i < (n->nodeCount & MASK); ++i) {
           AABB<F> p = gbox.getBox(canonicals.get(n->nodes[i]));
           printAABB(p);
-          if (n->echo[i]) std::cerr << "(echo) ";
         }
       }
       std::cerr << "\n";
