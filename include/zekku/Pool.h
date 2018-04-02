@@ -100,6 +100,40 @@ namespace zekku {
     bool isValid(size_t handle) { return allocated[handle]; }
     size_t size() const { return filled; }
     size_t getCapacity() const { return capacity; }
+    struct iterator {
+      Pool* p;
+      size_t i;
+      bool operator==(const iterator& other) {
+        return p == other.p && i == other.i;
+      }
+      bool operator!=(const iterator& other) {
+        return !(*this == other);
+      }
+      iterator operator++(int) {
+        iterator ip = *this;
+        ++(*this);
+        return ip;
+      }
+      iterator operator--(int) {
+        iterator ip = *this;
+        --(*this);
+        return ip;
+      }
+      iterator& operator++() {
+        do ++i;
+        while (!p->allocated[i] && i < p->capacity);
+        return *this;
+      }
+      iterator& operator--() {
+        do --i;
+        while (!p->allocated[i] && i > 0);
+        return *this;
+      }
+      T& operator*() { return p->elems[i]; }
+      const T& operator*() const { return p->elems[i]; }
+    };
+    iterator begin() { return { this, 0        }; }
+    iterator end()   { return { this, capacity }; }
   private:
     bool shouldExpand() {
       return filled * 4 >= capacity * 3;

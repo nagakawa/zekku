@@ -1,5 +1,5 @@
 CPP=g++ -Iinclude/ -I/usr/include/ -DUSE_GLM --std=c++14
-CFLAGS=-Wall -Werror -pedantic -Og -g
+CFLAGS=-Wall -Werror -pedantic -O0 -g
 CFLAGS_RELEASE=-Wall -Werror -pedantic -O3 -march=native
 
 all: build/test

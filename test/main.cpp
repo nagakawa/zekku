@@ -152,36 +152,39 @@ void testQTreePathological() {
   }
 }
 
+struct TestEntry {
+  zekku::AABB<float> box;
+  glm::vec2 velocity;
+};
+
 void testBBQTree() {
   std::cerr << "Testing bounding box quadtree...\n";
-  zekku::BoxQuadTree<
-    zekku::AABB<float>,
-    /* I = */ uint16_t,
-    /* F = */ float,
-    /* nc = */ zekku::QUADTREE_NODE_COUNT,
-    /* GetBB = */ zekku::AABBGetBB<float>
-  > tree({{0.0f, 0.0f}, {100.0f, 100.0f}});
+  zekku::BoxQuadTree<TestEntry, uint32_t>
+    tree({{0.0f, 0.0f}, {100.0f, 100.0f}});
   std::mt19937_64 r; // Ugh, C++ random number generation is a PITA.
   r.seed(time(nullptr));
   std::uniform_real_distribution<float> rd(-1.0f, 1.0f);
-  std::vector<zekku::AABB<float>> boxes(10000);
-  for (auto& box : boxes) {
-    box.c = { 50 * rd(r), 50 * rd(r) };
-    box.s = { 2.5 + 2.5 * rd(r), 2.5 + 2.5 * rd(r) };
+  std::vector<TestEntry> entries(10000);
+  for (auto& entry : entries) {
+    entry.box.c = { 50 * rd(r), 50 * rd(r) };
+    entry.box.s = { 2.5 + 2.5 * rd(r), 2.5 + 2.5 * rd(r) };
+    float s = 0.75f + 0.25f * rd(r);
+    float a = M_PI * rd(r);
+    entry.velocity = { s * cosf(a), s * sinf(a) };
   }
   Pair q = {50 * rd(r), 50 * rd(r)};
   zekku::CircleQuery<float> query(glm::tvec2<float>{q.x, q.y}, 20.0f);
   std::set<zekku::AABB<float>> nearPairs;
-  for (const auto& box : boxes) {
-    tree.insert(box);
-    if (query.intersects(box))
-      nearPairs.insert(box);
+  for (const auto& entry : entries) {
+    tree.insert(entry);
+    if (query.intersects(entry.box))
+      nearPairs.insert(entry.box);
   }
   std::vector<zekku::BBHandle> handles;
   tree.query(query, handles);
   std::set<zekku::AABB<float>> actualNearPairs;
   for (const auto& h : handles) {
-    const zekku::AABB<float>& p = tree.deref(h);
+    const zekku::AABB<float>& p = tree.deref(h).box;
     actualNearPairs.insert(p);
   }
   if (nearPairs != actualNearPairs) {
@@ -237,6 +240,29 @@ void testBBQTree() {
   fprintf(stderr,
     "Done! %zu intersections over %zu iterations taking %zu ms.\n",
     ints, iters, elapsed.count());
+  // Test performance of map
+  auto callback = [](TestEntry& e) {
+    glm::vec2 newPos = e.box.c + e.velocity;
+    if (newPos.x > 50) e.velocity.x = -fabs(e.velocity.x);
+    if (newPos.x < -50) e.velocity.x = fabs(e.velocity.x);
+    if (newPos.y > 50) e.velocity.y = -fabs(e.velocity.y);
+    if (newPos.y < -50) e.velocity.y = fabs(e.velocity.y);
+    e.box.c = newPos;
+  };
+  constexpr size_t updateIters = 1000;
+  ms = duration_cast<milliseconds>(
+    system_clock::now().time_since_epoch()
+  );
+  for (size_t i = 0; i < updateIters; ++i) {
+    tree.apply(callback);
+  }
+  ms2 = duration_cast<milliseconds>(
+    system_clock::now().time_since_epoch()
+  );
+  elapsed = ms2 - ms;
+  fprintf(stderr,
+    "Done! %zu apply() calls taking %zu ms.\n",
+    updateIters, elapsed.count());
 }
 
 int main() {

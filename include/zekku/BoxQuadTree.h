@@ -41,7 +41,7 @@ namespace zekku {
     }
   };
   struct BBHandle {
-    size_t index;
+    uint32_t index;
     bool operator==(const BBHandle& other) const {
       return index == other.index;
     }
@@ -96,7 +96,7 @@ namespace zekku {
         std::cerr << "with w = " << box.s[0] << " and h = " << box.s[1] << "\n";
         exit(-1);
       }
-      size_t ti = canonicals.allocate(std::move(t));
+      uint32_t ti = (uint32_t) canonicals.allocate(std::move(t));
       BBHandle h = insert(canonicals.get(ti), ti, p, root, box);
       assert(nodes.getCapacity() <= std::numeric_limits<I>::max());
       return h;
@@ -109,41 +109,40 @@ namespace zekku {
     }
     template<typename Q = AABB<T>>
     void query(const Q& shape, std::vector<BBHandle>& out) const {
-      auto callback = [&out](size_t ti, const T& /*t*/) {
+      auto callback = [&out](uint32_t ti, const T& /*t*/) {
         out.push_back({ ti });
       };
       query(shape, callback, root, box);
+      sortHandles(out);
+      auto it = std::unique(out.begin(), out.end());
+      out.erase(it, out.end());
     }
     template<typename Q = AABB<T>, typename C>
     void query(const Q& shape, C callback) const {
-      auto rawCallback = [&callback, this] (size_t /*ti*/, const T& t) {
-        callback(t);
-      };
-      query(shape, rawCallback, root, box);
+      std::vector<BBHandle> out;
+      query(shape, out);
+      for (BBHandle h : out) {
+        callback(canonicals.get(h.index));
+      }
+    }
+    template<typename Q = AABB<T>, typename C>
+    void querym(const Q& shape, C callback) {
+      std::vector<BBHandle> out;
+      query(shape, out);
+      for (BBHandle h : out) {
+        callback(std::move(canonicals.get(h.index)));
+      }
     }
     template<typename C>
-    BoxQuadTree mapm(const C& f) {
-      BoxQuadTree q(box, gbox);
-      query(QueryAll<F>(), [&q, f](T&& t) {
-        q.insert(f(std::move(t)));
-      });
-      return q;
-    }
-    template<typename C, typename P>
-    BoxQuadTree mapIf(const C& f, const P& b) const {
-      BoxQuadTree q(box, gbox);
-      query(QueryAll<F>(), [&q, f, b](const T& t) {
-        if (b(t)) q.insert(f(t));
-      });
-      return q;
-    }
-    template<typename C, typename P>
-    BoxQuadTree mapmIf(const C& f, const P& b) {
-      BoxQuadTree q(box, gbox);
-      query(QueryAll<F>(), [&q, f, b](T&& t) {
-        if (b(t)) q.insert(f(std::move(t)));
-      });
-      return q;
+    void apply(const C& f) {
+      // Apply f to each element and rebuild the tree.
+      clearTree();
+      for (auto it = canonicals.begin(); it != canonicals.end(); ++it) {
+        T& t = *it;
+        f(t);
+        AABB<F> p = gbox.getBox(t);
+        insert(t, it.i, p, root, box);
+      }
     }
     void dump() const {
       dump(root, box);
@@ -184,6 +183,11 @@ namespace zekku {
     I root;
     AABB<F> box;
     GetBB gbox;
+    void clearTree() {
+      // Clears the tree structure, but not the elements themselves.
+      nodes = Pool<Node>();
+      root = createNode();
+    }
     I createNode() {
       size_t i = nodes.allocate();
       nodes.get(i).nodeCount = 0;
@@ -194,11 +198,12 @@ namespace zekku {
 #define isLink    ((n.nodeCount & LINK) != 0)
 #define numNodes (n.nodeCount & MASK)
     BBHandle insertStem(
-        const T& t, size_t ti, const AABB<F>& p,
+        const T& t, uint32_t ti, const AABB<F>& p,
         size_t root,
         AABB<F> box,
         bool echo) {
       // Find out which subboxes this object intersects
+      assert(box.intersects(p));
       bool intersect[4];
       for (size_t i = 0; i < 4; ++i) {
         intersect[i] = box.getSubboxByClass(i).intersects(p);
@@ -219,7 +224,9 @@ namespace zekku {
           intersected = true;
         }
       }
-      assert(intersected);
+      // By now, intersected *should* be true, but rounding errors
+      // can result in p intersecting with box but not with any of its
+      // subboxes.
       // We can just return ti
       // since that's the index into the `canonicals` array
       return { ti };
@@ -228,7 +235,7 @@ namespace zekku {
     // If forceHere is true, then the node will be created on this
     // node and nowhere else, possibly creating a link node.
     BBHandle insert(
-        const T& t, size_t ti, const AABB<F>& p,
+        const T& t, uint32_t ti, const AABB<F>& p,
         I root,
         AABB<F> box,
         bool echo = false,
@@ -362,6 +369,50 @@ namespace zekku {
       }
       std::cerr << "\n";
       indent(s);
+    }
+    static void sortHandles(std::vector<BBHandle>& handles) {
+      constexpr size_t bitsPerIter = 8;
+      constexpr size_t iterations =
+        (sizeof(uint32_t) * CHAR_BIT + bitsPerIter - 1) / bitsPerIter;
+      constexpr size_t nBuckets = 1 << bitsPerIter;
+      size_t nHandles = handles.size();
+      if (nHandles == 0) return;
+      BBHandle* handlesAlt = new BBHandle[nHandles];
+      BBHandle* curr = handles.data();
+      BBHandle* next = handlesAlt;
+      // Use LSD radix sort, handling 4 bits at a time
+      for (size_t i = 0; i < iterations; ++i) {
+        size_t counts[1 + nBuckets] = {0};
+        for (size_t j = 0; j < nHandles; ++j) {
+          size_t digit = (curr[j].index >> (bitsPerIter * i)) & (nBuckets - 1);
+          ++counts[digit + 1];
+        }
+        for (size_t j = 0; j < nBuckets; ++j) {
+          counts[j + 1] += counts[j];
+        }
+        // Now counts[i] = Sigma_(k = 0)^(i - 1) (# entries in bucket k)
+        // In other words, this is the index where the handles
+        // in bucket i shall start
+        for (size_t j = 0; j < nHandles; ++j) {
+          size_t digit = (curr[j].index >> (bitsPerIter * i)) & (nBuckets - 1);
+          next[counts[digit]] = curr[j];
+          ++counts[digit];
+        }
+        /*for (size_t j = 0; j < nHandles - 1; ++j) {
+          size_t digit = (next[j].index >> (bitsPerIter * i)) & (nBuckets - 1);
+          std::cerr << next[j].index << "(" << digit << ") ";
+        }
+        std::cerr << "\n";*/
+        std::swap(curr, next);
+      }
+      if (nHandles % 2 != 0) {
+        memcpy(curr, next, sizeof(BBHandle) * nHandles);
+      }
+      // DEBUG: sanity check
+      for (size_t j = 0; j < nHandles - 1; ++j) {
+        assert(curr[j].index <= curr[j + 1].index);
+      }
+      delete[] next;
     }
   };
 }
