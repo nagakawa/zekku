@@ -3,3 +3,4 @@ build/test
 *.a
 *.so
 oprofile_data
+report.txt

@@ -108,22 +108,18 @@ namespace zekku {
     bool intersects(const AABB<F>& b) const {
       F r2 = r * r;
       return
+        (
+          std::abs(c.x - b.c.x) <= b.s.x &&
+          std::abs(c.y - b.c.y) <= b.s.y + r
+        ) ||
+        (
+          std::abs(c.x - b.c.x) <= b.s.x + r &&
+          std::abs(c.y - b.c.y) <= b.s.y
+        ) ||
         glm::dot(c - b.nwp(), c - b.nwp()) <= r2 ||
         glm::dot(c - b.swp(), c - b.swp()) <= r2 ||
         glm::dot(c - b.nep(), c - b.nep()) <= r2 ||
-        glm::dot(c - b.sep(), c - b.sep()) <= r2 ||
-        (
-          c.x >= b.c.x - b.s.x &&
-          c.x <= b.c.x + b.s.x &&
-          c.y >= b.c.y - b.s.y - r &&
-          c.y <= b.c.y + b.s.y + r
-        ) ||
-        (
-          c.x >= b.c.x - b.s.x - r &&
-          c.x <= b.c.x + b.s.x + r &&
-          c.y >= b.c.y - b.s.y &&
-          c.y <= b.c.y + b.s.y
-        );
+        glm::dot(c - b.sep(), c - b.sep()) <= r2;
     }
   };
   template<typename F = float>

@@ -409,9 +409,9 @@ namespace zekku {
         memcpy(curr, next, sizeof(BBHandle) * nHandles);
       }
       // DEBUG: sanity check
-      for (size_t j = 0; j < nHandles - 1; ++j) {
+      /*for (size_t j = 0; j < nHandles - 1; ++j) {
         assert(curr[j].index <= curr[j + 1].index);
-      }
+      }*/
       delete[] next;
     }
   };

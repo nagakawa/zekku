@@ -240,7 +240,27 @@ void testBBQTree() {
   fprintf(stderr,
     "Done! %zu intersections over %zu iterations taking %zu ms.\n",
     ints, iters, elapsed.count());
-  // Test performance of map
+  ms = duration_cast<milliseconds>(
+    system_clock::now().time_since_epoch()
+  );
+  ints = 0;
+  for (size_t i = 0; i < iters; ++i) {
+    float x = rd2(r);
+    float y = rd2(r);
+    zekku::CircleQuery<float> query(glm::tvec2<float>{x, y}, 20.0f);
+    for (const auto& e : entries) {
+      if (query.intersects(e.box)) ++ints;
+    }
+  }
+  ms2 = duration_cast<milliseconds>(
+    system_clock::now().time_since_epoch()
+  );
+  elapsed = ms2 - ms;
+  fprintf(stderr,
+    "(by comparison: %zu intersections by brute force\n"
+    "  over %zu iterations taking %zu ms)\n",
+    ints, iters, elapsed.count());
+  // Test performance of apply
   auto callback = [](TestEntry& e) {
     glm::vec2 newPos = e.box.c + e.velocity;
     if (newPos.x > 50) e.velocity.x = -fabs(e.velocity.x);
@@ -262,6 +282,20 @@ void testBBQTree() {
   elapsed = ms2 - ms;
   fprintf(stderr,
     "Done! %zu apply() calls taking %zu ms.\n",
+    updateIters, elapsed.count());
+  ms = duration_cast<milliseconds>(
+    system_clock::now().time_since_epoch()
+  );
+  for (size_t i = 0; i < updateIters; ++i) {
+    for (auto& e : entries)
+      callback(e);
+  }
+  ms2 = duration_cast<milliseconds>(
+    system_clock::now().time_since_epoch()
+  );
+  elapsed = ms2 - ms;
+  fprintf(stderr,
+    "(by comparison, %zu updates to each element of a vector take %zu ms)\n",
     updateIters, elapsed.count());
 }
 
