@@ -121,6 +121,30 @@ namespace zekku {
       };
       query(shape, rawCallback, root, box);
     }
+    template<typename C>
+    BoxQuadTree mapm(const C& f) {
+      BoxQuadTree q(box, gbox);
+      query(QueryAll<F>(), [&q, f](T&& t) {
+        q.insert(f(std::move(t)));
+      });
+      return q;
+    }
+    template<typename C, typename P>
+    BoxQuadTree mapIf(const C& f, const P& b) const {
+      BoxQuadTree q(box, gbox);
+      query(QueryAll<F>(), [&q, f, b](const T& t) {
+        if (b(t)) q.insert(f(t));
+      });
+      return q;
+    }
+    template<typename C, typename P>
+    BoxQuadTree mapmIf(const C& f, const P& b) {
+      BoxQuadTree q(box, gbox);
+      query(QueryAll<F>(), [&q, f, b](T&& t) {
+        if (b(t)) q.insert(f(std::move(t)));
+      });
+      return q;
+    }
     void dump() const {
       dump(root, box);
     }

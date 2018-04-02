@@ -214,6 +214,29 @@ void testBBQTree() {
   } else {
     std::cerr << "Sets are equal :)\n";
   }
+  std::uniform_real_distribution<float> rd2(-100.0f, 100.0f);
+  std::cerr << "Testing performance...\n";
+  using namespace std::chrono;
+  auto ms = duration_cast<milliseconds>(
+    system_clock::now().time_since_epoch()
+  );
+  size_t ints = 0;
+  constexpr size_t iters = 100000;
+  for (size_t i = 0; i < iters; ++i) {
+    float x = rd2(r);
+    float y = rd2(r);
+    std::vector<zekku::BBHandle> handles;
+    zekku::CircleQuery<float> query(glm::tvec2<float>{x, y}, 20.0f);
+    tree.query(query, handles);
+    ints += handles.size();
+  }
+  auto ms2 = duration_cast<milliseconds>(
+    system_clock::now().time_since_epoch()
+  );
+  auto elapsed = ms2 - ms;
+  fprintf(stderr,
+    "Done! %zu intersections over %zu iterations taking %zu ms.\n",
+    ints, iters, elapsed.count());
 }
 
 int main() {
