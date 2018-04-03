@@ -59,11 +59,11 @@ namespace zekku {
       bool south = p.y > c.y;
       return (south << 1) | east;
     }
-    AABB getSubboxByClass(size_t cl) const {
+    AABB getSubboxByClass(uint32_t cl) const {
       bool east = (cl & 1);
       bool south = (cl & 2) >> 1;
       glm::tvec2<F> dir{
-        (float) ((east << 1) - 1), (float) ((south << 1) - 1)};
+        (F) ((east << 1) - 1), (F) ((south << 1) - 1)};
       glm::tvec2<F> halfs = s * F{0.5};
       return {
         c + halfs * dir,
