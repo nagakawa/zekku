@@ -109,10 +109,7 @@ namespace zekku {
     }
     template<typename Q = AABB<T>>
     void query(const Q& shape, std::vector<BBHandle>& out) const {
-      auto callback = [&out](uint32_t ti, const T& /*t*/) {
-        out.push_back({ ti });
-      };
-      query(shape, callback, root, box);
+      query(shape, out, root, box);
       sortHandles(out);
       auto it = std::unique(out.begin(), out.end());
       out.erase(it, out.end());
@@ -156,7 +153,7 @@ namespace zekku {
       Node() :
         children{NOWHERE, NOWHERE, NOWHERE, NOWHERE},
         nodeCount(0), hash(0) {}
-      size_t nodes[nc]; // Indices to `canonicals`
+      uint32_t nodes[nc]; // Indices to `canonicals`
       // The following fields are unspecified if nodeCount < nc.
       // If (nodeCount & LINK) != 0, then children[0] contains the node with 
       // additional nodes and the rest of the fields are unspecified.
@@ -197,7 +194,6 @@ namespace zekku {
         size_t root,
         AABB<F> box) {
       // Find out which subboxes this object intersects
-      assert(box.intersects(p));
       bool intersect[4];
       for (size_t i = 0; i < 4; ++i) {
         intersect[i] = box.getSubboxByClass(i).intersects(p);
@@ -284,19 +280,19 @@ namespace zekku {
 #undef isNowhere
 #undef isLink
 #undef numNodes
-    template<typename Q = AABB<T>, typename C>
+    template<typename Q = AABB<T>>
     void query(
-        const Q& shape, const C& callback,
+        const Q& shape, std::vector<BBHandle>& callback,
         I root, AABB<F> box) const {
       // Abort if the query shape doesn't intersect the box
       if (!shape.intersects(box)) return;
       const Node* np = &(nodes.get(root));
       while ((np->nodeCount & LINK) != 0) {
         for (I i = 0; i < nc; ++i) {
-          size_t ni = np->nodes[i];
+          uint32_t ni = np->nodes[i];
           const T& n = canonicals.get(ni);
           if (shape.intersects(gbox.getBox(n)))
-            callback(ni, n);
+            callback.push_back({ ni });
         }
         np = &(nodes.get(np->children[0]));
       }
@@ -308,10 +304,10 @@ namespace zekku {
         query(shape, callback, np->children[3], box.se());
       }
       for (I i = 0; i < (np->nodeCount & MASK); ++i) {
-        size_t ni = np->nodes[i];
+        uint32_t ni = np->nodes[i];
         const T& n = canonicals.get(ni);
         if (shape.intersects(gbox.getBox(n)))
-          callback(ni, n);
+          callback.push_back({ ni });
       }
     }
     // Stuff for dumping
