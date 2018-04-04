@@ -106,20 +106,9 @@ namespace zekku {
     thanks https://gamedev.stackexchange.com/a/120897
     */
     bool intersects(const AABB<F>& b) const {
-      F r2 = r * r;
-      return
-        (
-          std::abs(c.x - b.c.x) <= b.s.x &&
-          std::abs(c.y - b.c.y) <= b.s.y + r
-        ) ||
-        (
-          std::abs(c.x - b.c.x) <= b.s.x + r &&
-          std::abs(c.y - b.c.y) <= b.s.y
-        ) ||
-        glm::dot(c - b.nwp(), c - b.nwp()) <= r2 ||
-        glm::dot(c - b.swp(), c - b.swp()) <= r2 ||
-        glm::dot(c - b.nep(), c - b.nep()) <= r2 ||
-        glm::dot(c - b.sep(), c - b.sep()) <= r2;
+      F dx = std::max(std::abs(c.x - b.c.x) - b.s.x, F{0});
+      F dy = std::max(std::abs(c.y - b.c.y) - b.s.y, F{0});
+      return dx * dx + dy * dy <= r * r;
     }
   };
   template<typename F = float>
@@ -142,7 +131,7 @@ namespace zekku {
   template<typename I = uint16_t>
   struct HandleHasher {
     size_t operator()(const Handle<I>& h) {
-      return (std::hash<I>(h.nodeid) << 1) ^ std::hash<I>(h.index);
+      return (std::hash<I>(h.nodeid) << 16) ^ std::hash<I>(h.index);
     }
   };
   constexpr size_t QUADTREE_NODE_COUNT = 32;

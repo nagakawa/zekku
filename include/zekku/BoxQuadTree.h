@@ -51,7 +51,7 @@ namespace zekku {
   };
   struct BBHandleHasher {
     size_t operator()(const BBHandle& h) {
-      return std::hash<size_t>()(h.index);
+      return h.index;
     }
   };
   /*
@@ -269,8 +269,6 @@ namespace zekku {
         if (isNowhere) {
           nwNode.nodeCount = NOWHERE;
           memcpy(nwNode.children, n.children, 4 * sizeof(I));
-        } else {
-          nwNode.nodeCount = 0;
         }
         n.children[0] = nw;
         n.nodeCount = LINK;
