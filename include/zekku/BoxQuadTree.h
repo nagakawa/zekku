@@ -353,30 +353,30 @@ namespace zekku {
       indent(s);
     }
     static void sortHandles(std::vector<BBHandle>& handles) {
-      constexpr size_t bitsPerIter = 8;
-      constexpr size_t iterations =
+      constexpr uint32_t bitsPerIter = 8;
+      constexpr uint32_t iterations =
         (sizeof(uint32_t) * CHAR_BIT + bitsPerIter - 1) / bitsPerIter;
-      constexpr size_t nBuckets = 1 << bitsPerIter;
+      constexpr uint32_t nBuckets = 1 << bitsPerIter;
       size_t nHandles = handles.size();
       if (nHandles == 0) return;
       BBHandle* handlesAlt = new BBHandle[nHandles];
       BBHandle* curr = handles.data();
       BBHandle* next = handlesAlt;
-      // Use LSD radix sort, handling 4 bits at a time
-      for (size_t i = 0; i < iterations; ++i) {
-        size_t counts[1 + nBuckets] = {0};
+      // Use LSD radix sort, handling `bitsPerIter` bits at a time
+      for (uint32_t i = 0; i < iterations; ++i) {
+        uint32_t counts[1 + nBuckets] = {0};
         for (size_t j = 0; j < nHandles; ++j) {
-          size_t digit = (curr[j].index >> (bitsPerIter * i)) & (nBuckets - 1);
+          uint32_t digit = (curr[j].index >> (bitsPerIter * i)) & (nBuckets - 1);
           ++counts[digit + 1];
         }
-        for (size_t j = 0; j < nBuckets; ++j) {
+        for (uint32_t j = 0; j < nBuckets; ++j) {
           counts[j + 1] += counts[j];
         }
         // Now counts[i] = Sigma_(k = 0)^(i - 1) (# entries in bucket k)
         // In other words, this is the index where the handles
         // in bucket i shall start
         for (size_t j = 0; j < nHandles; ++j) {
-          size_t digit = (curr[j].index >> (bitsPerIter * i)) & (nBuckets - 1);
+          uint32_t digit = (curr[j].index >> (bitsPerIter * i)) & (nBuckets - 1);
           next[counts[digit]] = curr[j];
           ++counts[digit];
         }
