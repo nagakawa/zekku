@@ -281,7 +281,7 @@ namespace zekku {
 #undef numNodes
     template<typename Q = AABB<T>>
     void query(
-        const Q& shape, std::vector<BBHandle>& callback,
+        const Q& shape, std::vector<BBHandle>& out,
         I root, AABB<F> box) const {
       // Abort if the query shape doesn't intersect the box
       if (!shape.intersects(box)) return;
@@ -291,22 +291,22 @@ namespace zekku {
           uint32_t ni = np->nodes[i];
           const T& n = canonicals.get(ni);
           if (shape.intersects(gbox.getBox(n)))
-            callback.push_back({ ni });
+            out.push_back({ ni });
         }
         np = &(nodes.get(np->children[0]));
       }
       if ((np->nodeCount & NOWHERE) != 0) {
         // Stem (and possibly a leaf)
-        query(shape, callback, np->children[0], box.nw());
-        query(shape, callback, np->children[1], box.ne());
-        query(shape, callback, np->children[2], box.sw());
-        query(shape, callback, np->children[3], box.se());
+        query(shape, out, np->children[0], box.nw());
+        query(shape, out, np->children[1], box.ne());
+        query(shape, out, np->children[2], box.sw());
+        query(shape, out, np->children[3], box.se());
       }
       for (I i = 0; i < (np->nodeCount & MASK); ++i) {
         uint32_t ni = np->nodes[i];
         const T& n = canonicals.get(ni);
         if (shape.intersects(gbox.getBox(n)))
-          callback.push_back({ ni });
+          out.push_back({ ni });
       }
     }
     // Stuff for dumping
