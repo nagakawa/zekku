@@ -44,11 +44,11 @@ namespace zekku {
   public:
     // static_assert(std::is_trivially_copyable<T>::value,
     //   "Your T is not trivially copyable, dum dum!");
-    Pool() : filled(0), capacity(START_CAPAT),
-        elems(tmalloc<T>(START_CAPAT)),
-        allocated(tmalloc<bool>(START_CAPAT)) {
+    Pool(size_t c = START_CAPAT) : filled(0), capacity(c),
+        elems(tmalloc<T>(c)),
+        allocated(tmalloc<bool>(c)) {
       r.seed(time(nullptr));
-      memset(allocated, 0, START_CAPAT * sizeof(bool));
+      memset(allocated, 0, c * sizeof(bool));
     }
     ~Pool() {
       freeElems(elems, allocated, capacity);

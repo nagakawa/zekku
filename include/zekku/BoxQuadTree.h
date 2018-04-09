@@ -179,7 +179,8 @@ namespace zekku {
     GetBB gbox;
     void clearTree() {
       // Clears the tree structure, but not the elements themselves.
-      nodes = Pool<Node>();
+      size_t oc = nodes.getCapacity();
+      nodes = Pool<Node>(oc);
       root = createNode();
     }
     I createNode() {
