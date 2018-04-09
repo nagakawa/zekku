@@ -21,14 +21,14 @@ namespace zekku {
   struct DefaultGetBB {
     static_assert(std::is_floating_point<F>::value,
       "Your F is not a floating-point number, dum dum!");
-    AABB<F> getBox(T t) const { return t.box; }
+    const AABB<F>& getBox(const T& t) const { return t.box; }
   };
   // Yes, this sounds pretty silly.
   template<typename F = float>
   struct AABBGetBB {
     static_assert(std::is_floating_point<F>::value,
       "Your F is not a floating-point number, dum dum!");
-    AABB<F> getBox(AABB<F> t) const { return t; }
+    const AABB<F>& getBox(const AABB<F>& t) const { return t; }
   };
   template<typename F>
   struct BBHash {
@@ -47,6 +47,9 @@ namespace zekku {
     }
     bool operator<(const BBHandle& other) const {
       return index < other.index;
+    }
+    bool operator>(const BBHandle& other) const {
+      return other < *this;
     }
   };
   struct BBHandleHasher {
@@ -151,8 +154,7 @@ namespace zekku {
     class Node {
     public:
       Node() :
-        children{NOWHERE, NOWHERE, NOWHERE, NOWHERE},
-        nodeCount(0), hash(0) {}
+        hash(0), nodeCount(0) {}
       uint32_t nodes[nc]; // Indices to `canonicals`
       // The following fields are unspecified if nodeCount < nc.
       // If (nodeCount & LINK) != 0, then children[0] contains the node with 
@@ -166,9 +168,9 @@ namespace zekku {
       // you have to slog through it [and possibly even more LINKs]
       // before you can see the children of the node, but this
       // simplifies the logic.)
+      size_t hash;
       I children[4];
       I nodeCount; // Set to NOWHERE if not a leaf.
-      size_t hash;
     };
     Pool<Node> nodes;
     Pool<T> canonicals;
@@ -187,8 +189,8 @@ namespace zekku {
     }
 #define n (nodes.get(root))
 #define isNowhere ((n.nodeCount & NOWHERE) != 0)
-#define isLink    ((n.nodeCount & LINK) != 0)
-#define numNodes (n.nodeCount & MASK)
+#define isLink    (n.nodeCount == LINK)
+#define numNodes  (n.nodeCount & MASK)
     BBHandle insertStem(
         const T& t, uint32_t ti, const AABB<F>& p,
         size_t root,
@@ -286,7 +288,7 @@ namespace zekku {
       // Abort if the query shape doesn't intersect the box
       if (!shape.intersects(box)) return;
       const Node* np = &(nodes.get(root));
-      while ((np->nodeCount & LINK) != 0) {
+      while (np->nodeCount == LINK) {
         for (I i = 0; i < nc; ++i) {
           uint32_t ni = np->nodes[i];
           const T& n = canonicals.get(ni);
@@ -354,11 +356,12 @@ namespace zekku {
     }
     static void sortHandles(std::vector<BBHandle>& handles) {
       constexpr uint32_t bitsPerIter = 8;
-      constexpr uint32_t iterations =
-        (sizeof(uint32_t) * CHAR_BIT + bitsPerIter - 1) / bitsPerIter;
       constexpr uint32_t nBuckets = 1 << bitsPerIter;
       size_t nHandles = handles.size();
       if (nHandles == 0) return;
+      BBHandle biggestHandle = *std::max_element(handles.begin(), handles.end());
+      uint32_t iterations =
+        (log2up(biggestHandle.index) + bitsPerIter - 1) / bitsPerIter;
       BBHandle* handlesAlt = new BBHandle[nHandles];
       BBHandle* curr = handles.data();
       BBHandle* next = handlesAlt;
@@ -387,14 +390,12 @@ namespace zekku {
         std::cerr << "\n";*/
         std::swap(curr, next);
       }
-      if (nHandles % 2 != 0) {
-        memcpy(curr, next, sizeof(BBHandle) * nHandles);
+      if (handles.data() != curr) {
+        memcpy(handles.data(), curr, sizeof(BBHandle) * nHandles);
       }
       // DEBUG: sanity check
-      /*for (size_t j = 0; j < nHandles - 1; ++j) {
-        assert(curr[j].index <= curr[j + 1].index);
-      }*/
-      delete[] next;
+      /**/
+      delete[] handlesAlt;
     }
   };
 }
