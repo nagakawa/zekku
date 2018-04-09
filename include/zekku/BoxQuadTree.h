@@ -197,26 +197,25 @@ namespace zekku {
         size_t root,
         AABB<F> box) {
       // Find out which subboxes this object intersects
-      bool intersect[4];
-      intersect[0] = box.nw().intersects(p);
-      intersect[1] = box.ne().intersects(p);
-      intersect[2] = box.sw().intersects(p);
-      intersect[3] = box.se().intersects(p);
+      bool i0 = box.nw().intersects(p);
+      bool i1 = box.ne().intersects(p);
+      bool i2 = box.sw().intersects(p);
+      bool i3 = box.se().intersects(p);
       // By now, at least one element of intersect *should* be true,
       // but rounding errors can result in p intersecting with box
       // but not with any of its subboxes.
       // Intersects every quadrant?
-      if (intersect[0] && intersect[1] && intersect[2] && intersect[3]) {
+      if (i0 && i1 && i2 && i3) {
         return insert(t, ti, p, root, box, true);
       }
       // Otherwise...
-      if (intersect[0])
+      if (i0)
         insert(t, ti, p, n.children[0], box.nw());
-      if (intersect[1])
+      if (i1)
         insert(t, ti, p, n.children[1], box.ne());
-      if (intersect[2])
+      if (i2)
         insert(t, ti, p, n.children[2], box.sw());
-      if (intersect[3])
+      if (i3)
         insert(t, ti, p, n.children[3], box.se());
       // We can just return ti
       // since that's the index into the `canonicals` array

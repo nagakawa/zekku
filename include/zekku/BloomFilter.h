@@ -1,0 +1,73 @@
+#pragma once
+
+#ifndef ZEKKU_BOX_BLOOMFILTER_H
+#define ZEKKU_BOX_BLOOMFILTER_H
+
+#include <bitset>
+
+namespace zekku {
+  static constexpr uint64_t multipliers[] = {
+    0x6B7139138C962EE7, 0x6A329CC89E86A6B5,
+    0xB4E142469D52F60D, 0x827BAF1E219E9D41,
+    0x5C16E09D9997360F, 0x934662B5B427E64D,
+    0x88A4396354683831, 0x305CEABF79B198A9,
+    0x03F4B0E8318B84EF, 0xAA2F1BE40889A8E7,
+    0xC1FDDA08EC093FF9, 0x060C120F795E58E9,
+    0x1002F360C9D904B7, 0xA1C0861B232006F5,
+    0x1EA42200FB1865E1, 0xEE790C35914E162F,
+    0x76E49AF922A77BB7, 0x9FE9D50D38B5637F,
+    0x5C152B8E1D08E3B1, 0xB6748C6FE1DE4A09,
+    0x1BB4505CE791F1BB, 0x980A2015D13B3DEB,
+    0x300EE6EF2371261D, 0x1BA8D634407E247D,
+    0xB87B1770B8774F23, 0x941E2258C9B5CE29,
+    0xCFC70E7623263B63, 0x6D6CB1109F795D8B,
+    0xEE94097652F18B2B, 0x125363BB4A91AFE7,
+    0x798882E0D33E0E8D, 0x3367703926B4BECB,
+    0x6B7E6B630B4CBACD, 0x1A8A09FD7251F86B,
+    0x8D2E8B17FD7E3047, 0x5D9D5BFDB2BAB955,
+    0x40CE8E007BB301C9, 0x61135FFC4A1E9B33,
+    0xE547AB6C6D2021A1, 0xFFE4C1D356602773,
+    0x9AC2C3180CFE832B, 0xC47E59612DDE769F,
+    0xC2A45661FE5595F7, 0x958AFF14E50E45A9,
+    0x2465119382DB4BBF, 0xEC70E1AB3C7464D9,
+    0xF3B5F915377F2AF1, 0x35594CC9C2100167,
+    0xEFEEAC0EC4541B8D, 0x0257192EE293A727,
+    0xB99356D0BC6769C9, 0x995312A8B7F29B77,
+    0x811AE264F7B58DC5, 0x17931DBEC00F0371,
+    0x71362004605440BF, 0xC927CD4A5FF26543,
+    0xF4E5A7FE14378515, 0x61C799ABEE60E393,
+    0x340F2B38D83A6C81, 0xE1849604DC3D9C13,
+    0xBDC46520B1D5AE2F, 0x2A036AE3F8A2FAEF,
+    0x48DB0139A08BCB5D, 0x8BB3F0EF6599B4E1,
+  };
+  template<
+    typename T,
+    typename Hash,
+    size_t k
+  >
+  class BloomFilter {
+  public:
+    template<typename... Args>
+    BloomFilter(Args&&... args) : h(args...) {}
+    void insert(const T& t) {
+      size_t h = h(t);
+      for (size_t i = 0; i < k; ++i) {
+        size_t h2 = multipliers[i] * h;
+        bits[i] |= h2;
+      }
+    }
+    bool probablyContains(const T& t) {
+      size_t h = h(t);
+      for (size_t i = 0; i < k; ++i) {
+        size_t h2 = multipliers[i] * h;
+        if ((bits[i] | h2) != h2) return false;
+      }
+      return true;
+    }
+  private:
+    std::array<uint64_t> bits;
+    [[no_unique_address]] Hash h;
+  };
+}
+
+#endif
