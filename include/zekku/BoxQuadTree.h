@@ -151,29 +151,26 @@ namespace zekku {
       dump(root, box);
     }
   private:
-    static constexpr I MASK = 0x3FFF;
-    static constexpr I NOWHERE = 0x4000;
-    static constexpr I LINK = 0x8000;
     class Node {
     public:
       Node() :
         hash(0), nodeCount(0), link(false), stem(false) {}
       uint32_t nodes[nc]; // Indices to `canonicals`
-      // The following fields are unspecified if nodeCount < nc.
-      // If (nodeCount & LINK) != 0, then children[0] contains the node with 
+      // The following fields are unspecified if neither stem nor link is set.
+      // If link is set, then children[0] contains the node with 
       // additional nodes and the rest of the fields are unspecified.
-      // If (nodeCount & NOWHERE) != 0, then the fields point to the four
+      // If stem is set, then the fields point to the four
       // child quadtrants of this node.
-      // If (nodeCount & LINK) == 0, then (nodeCount & MASK) stores
+      // If link is not set, then nodeCount stores
       // the number of nodes stored in the `nodes` array.
-      // NOWHERE and LINK cannot be set at the same time.
-      // (This implies that if you encounter a LINK node during insertion,
-      // you have to slog through it [and possibly even more LINKs]
+      // stem and link cannot be set at the same time.
+      // (This implies that if you encounter a link node during insertion,
+      // you have to slog through it [and possibly even more link's]
       // before you can see the children of the node, but this
       // simplifies the logic.)
       size_t hash;
       I children[4];
-      I nodeCount; // Set to NOWHERE if not a leaf.
+      I nodeCount;
       bool link, stem;
     };
     Pool<Node> nodes;
