@@ -15,6 +15,8 @@
 #include <glm/glm.hpp>
 #include "zekku/Pool.h"
 #include "zekku/QuadTree.h"
+#include "zekku/bitwise.h"
+#include "zekku/BloomFilter.h"
 
 namespace zekku {
   template<typename T, typename F = float>
@@ -77,6 +79,7 @@ namespace zekku {
       "Don't use a signed int for sizes, dum dum!");
     static_assert(std::is_floating_point<F>::value,
       "Your F is not a floating-point number, dum dum!");
+    // using BF = BloomFilter<BBHandle, BBHandleHasher, 1>;
     template<typename... Args>
     BoxQuadTree(const AABB<F>& box, Args&&... args) :
         root((I) nodes.allocate()), box(box), gbox(args...) {}
@@ -154,7 +157,7 @@ namespace zekku {
     class Node {
     public:
       Node() :
-        hash(0), nodeCount(0) {}
+        hash(0), nodeCount(0), link(false), stem(false) {}
       uint32_t nodes[nc]; // Indices to `canonicals`
       // The following fields are unspecified if nodeCount < nc.
       // If (nodeCount & LINK) != 0, then children[0] contains the node with 
@@ -171,6 +174,7 @@ namespace zekku {
       size_t hash;
       I children[4];
       I nodeCount; // Set to NOWHERE if not a leaf.
+      bool link, stem;
     };
     Pool<Node> nodes;
     Pool<T> canonicals;
@@ -185,13 +189,12 @@ namespace zekku {
     }
     I createNode() {
       size_t i = nodes.allocate();
-      nodes.get(i).nodeCount = 0;
       return (I) i;
     }
 #define n (nodes.get(root))
-#define isNowhere ((n.nodeCount & NOWHERE) != 0)
-#define isLink    (n.nodeCount == LINK)
-#define numNodes  (n.nodeCount & MASK)
+#define isNowhere (n.stem)
+#define isLink    (n.link)
+#define numNodes  (n.nodeCount)
     BBHandle insertStem(
         const T& t, uint32_t ti, const AABB<F>& p,
         size_t root,
@@ -251,7 +254,8 @@ namespace zekku {
         n.children[1] = ne;
         n.children[2] = sw;
         n.children[3] = se;
-        n.nodeCount = NOWHERE;
+        n.stem = true;
+        n.nodeCount = 0;
         for (size_t i = 0; i < nc; ++i) {
           size_t subi = n.nodes[i];
           const T& sub = canonicals.get(subi);
@@ -269,11 +273,12 @@ namespace zekku {
         Node& nwNode = nodes.get(nw);
         // Transfer children from n to nw (if any)
         if (isNowhere) {
-          nwNode.nodeCount = NOWHERE;
+          nwNode.stem = true;
           memcpy(nwNode.children, n.children, 4 * sizeof(I));
         }
         n.children[0] = nw;
-        n.nodeCount = LINK;
+        n.link = true;
+        n.stem = false;
         return insert(t, ti, p, n.children[0], box);
       }
     }
@@ -288,7 +293,7 @@ namespace zekku {
       // Abort if the query shape doesn't intersect the box
       if (!shape.intersects(box)) return;
       const Node* np = &(nodes.get(root));
-      while (np->nodeCount == LINK) {
+      while (np->link) {
         for (I i = 0; i < nc; ++i) {
           uint32_t ni = np->nodes[i];
           const T& n = canonicals.get(ni);
@@ -297,14 +302,14 @@ namespace zekku {
         }
         np = &(nodes.get(np->children[0]));
       }
-      if ((np->nodeCount & NOWHERE) != 0) {
+      if (np->stem) {
         // Stem (and possibly a leaf)
         query(shape, out, np->children[0], box.nw());
         query(shape, out, np->children[1], box.ne());
         query(shape, out, np->children[2], box.sw());
         query(shape, out, np->children[3], box.se());
       }
-      for (I i = 0; i < (np->nodeCount & MASK); ++i) {
+      for (I i = 0; i < np->nodeCount; ++i) {
         uint32_t ni = np->nodes[i];
         const T& n = canonicals.get(ni);
         if (shape.intersects(gbox.getBox(n)))
@@ -322,20 +327,20 @@ namespace zekku {
     void dump(I root, AABB<F> box, size_t s = 0) const {
       const Node* n = &nodes.get(root);
       const Node* end = n;
-      while ((end->nodeCount & LINK) != 0) end = &nodes.get(end->children[0]);
-      if ((end->nodeCount & NOWHERE) != 0) {
+      while (end->link) end = &nodes.get(end->children[0]);
+      if (end->stem) {
         std::cerr << "Stem (with overflow nodes) "; printAABB(box); std::cerr << ": ";
       } else {
         std::cerr << "Leaf "; printAABB(box); std::cerr << ": ";
       }
-      while ((n->nodeCount & LINK) != 0) {
+      while (n->link) {
         for (size_t i = 0; i < nc; ++i) {
           AABB<F> p = gbox.getBox(canonicals.get(n->nodes[i]));
           printAABB(p);
         }
         n = &nodes.get(n->children[0]);
       }
-      if ((n->nodeCount & NOWHERE) != 0) {
+      if (n->stem) {
         std::cerr << '\n';
         for (size_t i = 0; i < 4; ++i) {
           indent(s);
@@ -345,8 +350,8 @@ namespace zekku {
             dump(n->children[i], box.getSubboxByClass(i), s + 1);
         }
       }
-      if (n->nodeCount != NOWHERE) {
-        for (size_t i = 0; i < (n->nodeCount & MASK); ++i) {
+      if (!n->stem || n->nodeCount != 0) {
+        for (size_t i = 0; i < n->nodeCount; ++i) {
           AABB<F> p = gbox.getBox(canonicals.get(n->nodes[i]));
           printAABB(p);
         }

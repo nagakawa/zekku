@@ -50,23 +50,23 @@ namespace zekku {
     template<typename... Args>
     BloomFilter(Args&&... args) : h(args...) {}
     void insert(const T& t) {
-      size_t h = h(t);
+      size_t hs = h(t);
       for (size_t i = 0; i < k; ++i) {
-        size_t h2 = multipliers[i] * h;
+        size_t h2 = multipliers[i] * hs;
         bits[i] |= h2;
       }
     }
     bool probablyContains(const T& t) {
-      size_t h = h(t);
+      size_t hs = h(t);
       for (size_t i = 0; i < k; ++i) {
-        size_t h2 = multipliers[i] * h;
-        if ((bits[i] | h2) != h2) return false;
+        size_t h2 = multipliers[i] * hs;
+        if ((bits[i] & h2) != h2) return false;
       }
       return true;
     }
   private:
-    std::array<uint64_t> bits;
-    [[no_unique_address]] Hash h;
+    std::array<uint64_t, k> bits;
+    Hash h;
   };
 }
 

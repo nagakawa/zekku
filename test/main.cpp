@@ -7,7 +7,6 @@
 #include <random>
 #include <set>
 
-#include "zekku/bitwise.h"
 #include "zekku/Pool.h"
 #include "zekku/QuadTree.h"
 #include "zekku/BoxQuadTree.h"
