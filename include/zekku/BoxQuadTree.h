@@ -155,7 +155,6 @@ namespace zekku {
     public:
       Node() :
         hash(0), nodeCount(0), link(false), stem(false) {}
-      uint32_t nodes[nc]; // Indices to `canonicals`
       // The following fields are unspecified if neither stem nor link is set.
       // If link is set, then children[0] contains the node with 
       // additional nodes and the rest of the fields are unspecified.
@@ -172,6 +171,7 @@ namespace zekku {
       I children[4];
       I nodeCount;
       bool link, stem;
+      uint32_t nodes[nc]; // Indices to `canonicals`
     };
     Pool<Node> nodes;
     Pool<T> canonicals;
