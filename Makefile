@@ -10,7 +10,8 @@ build/test: test/main.cpp \
 		include/zekku/QuadTree.h \
 		include/zekku/BoxQuadTree.h \
 		include/zekku/bitwise.h \
-		include/zekku/BloomFilter.h
+		include/zekku/BloomFilter.h \
+		include/zekku/base.h
 	@mkdir -p build
 	@echo -e '\e[33mCompiling test program...\e[0m'
 	@$(CPP) --std=c++14 test/main.cpp -o build/test $(CFLAGS_RELEASE)

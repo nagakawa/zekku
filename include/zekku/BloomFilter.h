@@ -4,6 +4,7 @@
 #define ZEKKU_BOX_BLOOMFILTER_H
 
 #include <bitset>
+#include "zekku/base.h"
 
 namespace zekku {
   static constexpr uint64_t multipliers[] = {
@@ -66,7 +67,7 @@ namespace zekku {
     }
   private:
     std::array<uint64_t, k> bits;
-    Hash h;
+    ZK_NOUNIQADDR Hash h;
   };
 }
 

@@ -1,5 +1,6 @@
 #include <stdint.h>
 #include <stdio.h>
+#include <string.h>
 #include <time.h>
 #include <algorithm>
 #include <chrono>
@@ -10,6 +11,13 @@
 #include "zekku/Pool.h"
 #include "zekku/QuadTree.h"
 #include "zekku/BoxQuadTree.h"
+
+struct Options {
+  float searchRadius = 20.0f;
+  size_t nObjects = 10000;
+};
+
+Options opts;
 
 template<typename F>
 std::ostream& operator<<(std::ostream& fh, const zekku::AABB<F>& box) {
@@ -60,7 +68,7 @@ void testQTree() {
   std::uniform_real_distribution<float> rd(-100.0f, 100.0f);
   std::set<Pair> nearPairs;
   Pair q = {rd(r), rd(r)};
-  for (size_t i = 0; i < 10000; ++i) {
+  for (size_t i = 0; i < opts.nObjects; ++i) {
     Pair p = {rd(r), rd(r)};
     float dx = p.x - q.x;
     float dy = p.y - q.y;
@@ -117,7 +125,8 @@ void testQTree() {
     float x = rd(r);
     float y = rd(r);
     std::vector<zekku::Handle<uint16_t>> handles;
-    zekku::CircleQuery<float> query(glm::tvec2<float>{x, y}, 20.0f);
+    zekku::CircleQuery<float>
+      query(glm::tvec2<float>{x, y}, opts.searchRadius);
     tree.query(query, handles);
     ints += handles.size();
   }
@@ -164,7 +173,7 @@ void testBBQTree() {
   std::mt19937_64 r; // Ugh, C++ random number generation is a PITA.
   r.seed(time(nullptr));
   std::uniform_real_distribution<float> rd(-1.0f, 1.0f);
-  std::vector<TestEntry> entries(10000);
+  std::vector<TestEntry> entries(opts.nObjects);
   for (auto& entry : entries) {
     entry.box.c = { 50 * rd(r), 50 * rd(r) };
     entry.box.s = { 2.5 + 2.5 * rd(r), 2.5 + 2.5 * rd(r) };
@@ -229,7 +238,8 @@ void testBBQTree() {
     float x = rd2(r);
     float y = rd2(r);
     std::vector<zekku::BBHandle> handles;
-    zekku::CircleQuery<float> query(glm::tvec2<float>{x, y}, 20.0f);
+    zekku::CircleQuery<float>
+      query(glm::tvec2<float>{x, y}, opts.searchRadius);
     tree.query(query, handles);
     ints += handles.size();
   }
@@ -247,7 +257,8 @@ void testBBQTree() {
   for (size_t i = 0; i < iters; ++i) {
     float x = rd2(r);
     float y = rd2(r);
-    zekku::CircleQuery<float> query(glm::tvec2<float>{x, y}, 20.0f);
+    zekku::CircleQuery<float>
+      query(glm::tvec2<float>{x, y}, opts.searchRadius);
     for (const auto& e : entries) {
       if (query.intersects(e.box)) ++ints;
     }
@@ -299,8 +310,39 @@ void testBBQTree() {
     updateIters, elapsed.count());
 }
 
-int main() {
+bool readOpts(int argc, char** argv) {
+  int k = 1;
+  while (k < argc) {
+    char* s = argv[k];
+    if (s[0] == '-') ++s;
+    ++k;
+    if (k >= argc) return false;
+    char* e;
+    switch (s[0]) {
+      case 'r': {
+        opts.searchRadius = strtof(argv[k], &e);
+        if (e[0] != '\0') return false;
+        break;
+      }
+      case 'o': {
+        opts.nObjects = strtoul(argv[k], &e, 10);
+        if (e[0] != '\0') return false;
+        break;
+      }
+      default: return false;
+    }
+    ++k;
+  }
+  return true;
+}
+
+int main(int argc, char** argv) {
+  if (!readOpts(argc, argv)) {
+    printf("Usage: %s [-r <search radius>] [-o <object count>]\n", argv[0]);
+    return -1;
+  }
   printf("Testing...\n");
+  printf("Object count = %zu\n", opts.nObjects);
   testPool();
   testQTree();
   testQTreePathological();

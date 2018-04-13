@@ -17,6 +17,7 @@
 #include "zekku/QuadTree.h"
 #include "zekku/bitwise.h"
 #include "zekku/BloomFilter.h"
+#include "zekku/base.h"
 
 namespace zekku {
   template<typename T, typename F = float>
@@ -35,11 +36,10 @@ namespace zekku {
   template<typename F>
   struct BBHash {
     size_t operator()(const AABB<F>& box) const {
+      // XXX: this hash function is just good enough for BoxQuadTree.
+      // It's not a very good general hashing function.
       return
-        (std::hash<F>()(box.c.x) << 3) ^
-        (std::hash<F>()(box.c.y) << 2) ^
-        (std::hash<F>()(box.s.x) << 1) ^
-        (std::hash<F>()(box.s.y));
+        std::hash<F>()(box.c.x + box.c.y - box.s.x - box.s.y);
     }
   };
   struct BBHandle {
@@ -177,7 +177,7 @@ namespace zekku {
     Pool<T> canonicals;
     I root;
     AABB<F> box;
-    GetBB gbox;
+    ZK_NOUNIQADDR GetBB gbox;
     void clearTree() {
       // Clears the tree structure, but not the elements themselves.
       size_t oc = nodes.getCapacity();

@@ -13,6 +13,7 @@
 #include <type_traits>
 #include <glm/glm.hpp>
 #include "zekku/Pool.h"
+#include "zekku/base.h"
 
 namespace zekku {
   template<typename T, typename F = float>
@@ -256,7 +257,7 @@ namespace zekku {
     Pool<Node> nodes;
     I root;
     AABB<F> box;
-    GetXY gxy;
+    ZK_NOUNIQADDR GetXY gxy;
     I createNode() {
       size_t i = nodes.allocate();
       nodes.get(i).nodeCount = 0;
