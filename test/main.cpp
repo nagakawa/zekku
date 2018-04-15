@@ -76,7 +76,7 @@ void testQTree() {
       nearPairs.insert(p);
     tree.insert(p);
   }
-  zekku::CircleQuery<float> query(glm::tvec2<float>{q.x, q.y}, 20.0f);
+  zekku::Circle<float> query(glm::tvec2<float>{q.x, q.y}, 20.0f);
   std::vector<zekku::Handle<uint16_t>> handles;
   tree.query(query, handles);
   std::set<Pair> actualNearPairs;
@@ -125,7 +125,7 @@ void testQTree() {
     float x = rd(r);
     float y = rd(r);
     std::vector<zekku::Handle<uint16_t>> handles;
-    zekku::CircleQuery<float>
+    zekku::Circle<float>
       query(glm::tvec2<float>{x, y}, opts.searchRadius);
     tree.query(query, handles);
     ints += handles.size();
@@ -182,7 +182,7 @@ void testBBQTree() {
     entry.velocity = { s * cosf(a), s * sinf(a) };
   }
   Pair q = {50 * rd(r), 50 * rd(r)};
-  zekku::CircleQuery<float> query(glm::tvec2<float>{q.x, q.y}, 20.0f);
+  zekku::Circle<float> query(glm::tvec2<float>{q.x, q.y}, 20.0f);
   std::set<zekku::AABB<float>> nearPairs;
   for (const auto& entry : entries) {
     tree.insert(entry);
@@ -238,7 +238,7 @@ void testBBQTree() {
     float x = rd2(r);
     float y = rd2(r);
     std::vector<zekku::BBHandle> handles;
-    zekku::CircleQuery<float>
+    zekku::Circle<float>
       query(glm::tvec2<float>{x, y}, opts.searchRadius);
     tree.query(query, handles);
     ints += handles.size();
@@ -257,7 +257,7 @@ void testBBQTree() {
   for (size_t i = 0; i < iters; ++i) {
     float x = rd2(r);
     float y = rd2(r);
-    zekku::CircleQuery<float>
+    zekku::Circle<float>
       query(glm::tvec2<float>{x, y}, opts.searchRadius);
     for (const auto& e : entries) {
       if (query.intersects(e.box)) ++ints;

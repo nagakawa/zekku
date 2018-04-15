@@ -93,8 +93,8 @@ namespace zekku {
     return a.c == b.c && a.s == b.s;
   }
   template<typename F = float>
-  struct CircleQuery {
-    CircleQuery(const glm::tvec2<F>& c, F r) : c(c), r(r) {}
+  struct Circle {
+    Circle(const glm::tvec2<F>& c, F r) : c(c), r(r) {}
     glm::tvec2<F> c;
     F r;
     bool contains(glm::tvec2<F> p) const {
@@ -109,6 +109,11 @@ namespace zekku {
     bool intersects(const AABB<F>& b) const {
       F dx = std::max(std::abs(c.x - b.c.x) - b.s.x, F{0});
       F dy = std::max(std::abs(c.y - b.c.y) - b.s.y, F{0});
+      return dx * dx + dy * dy <= r * r;
+    }
+    bool intersects(const Circle<F>& b) const {
+      F dx = c.x - b.c.x;
+      F dy = c.y - b.c.y;
       return dx * dx + dy * dy <= r * r;
     }
   };
