@@ -189,14 +189,14 @@ namespace zekku {
       size_t i = nodes.allocate();
       return (I) i;
     }
-#define n (nodes.get(root))
-#define isNowhere (n.stem)
-#define isLink    (n.link)
-#define numNodes  (n.nodeCount)
+#define isNowhere (np->stem)
+#define isLink    (np->link)
+#define numNodes  (np->nodeCount)
     BBHandle insertStem(
         const T& t, uint32_t ti, const B& p,
         size_t root,
-        AABB<F> box) {
+        const AABB<F>& box) {
+      Node* np = &nodes.get(root);
       // Find out which subboxes this object intersects
       bool i0 = box.nw().intersects(p);
       bool i1 = box.ne().intersects(p);
@@ -211,13 +211,13 @@ namespace zekku {
       }
       // Otherwise...
       if (i0)
-        insert(t, ti, p, n.children[0], box.nw());
+        insert(t, ti, p, np->children[0], box.nw());
       if (i1)
-        insert(t, ti, p, n.children[1], box.ne());
+        insert(t, ti, p, np->children[1], box.ne());
       if (i2)
-        insert(t, ti, p, n.children[2], box.sw());
+        insert(t, ti, p, np->children[2], box.sw());
       if (i3)
-        insert(t, ti, p, n.children[3], box.se());
+        insert(t, ti, p, np->children[3], box.se());
       // We can just return ti
       // since that's the index into the `canonicals` array
       return { ti };
@@ -230,32 +230,37 @@ namespace zekku {
         I root,
         AABB<F> box,
         bool forceHere = false) {
-      while (isLink) root = n.children[0];
+      Node* np = &nodes.get(root);
+      while (isLink) {
+        root = np->children[0];
+        np = &nodes.get(root);
+      }
       if (isNowhere && !forceHere) {
         assert(!isLink);
         return insertStem(t, ti, p, root, box);
       }
       if (numNodes < nc) {
-        n.nodes[numNodes] = ti;
+        np->nodes[numNodes] = ti;
         B bb = gbox(t);
-        n.hash ^= BBHash<F>()(bb);
-        ++n.nodeCount;
+        np->hash ^= BBHash<F>()(bb);
+        ++np->nodeCount;
         return { ti };
-      } else if (n.hash != 0 && !isLink && !forceHere) {
+      } else if (np->hash != 0 && !isLink && !forceHere) {
         // Leaf is full!
         // Split into multiple trees.
         I nw = createNode();
         I ne = createNode();
         I sw = createNode();
         I se = createNode();
-        n.children[0] = nw;
-        n.children[1] = ne;
-        n.children[2] = sw;
-        n.children[3] = se;
-        n.stem = true;
-        n.nodeCount = 0;
+        np = &nodes.get(root);
+        np->children[0] = nw;
+        np->children[1] = ne;
+        np->children[2] = sw;
+        np->children[3] = se;
+        np->stem = true;
+        np->nodeCount = 0;
         for (size_t i = 0; i < nc; ++i) {
-          size_t subi = n.nodes[i];
+          size_t subi = np->nodes[i];
           const T& sub = canonicals.get(subi);
           B ps = gbox(sub);
           insertStem(sub, subi, ps, root, box);
@@ -268,19 +273,19 @@ namespace zekku {
         // or forceHere is true
         // (in which case isNowhere might be true as well)
         I nw = createNode(); // Create a node for overflow
+        np = &nodes.get(root);
         Node& nwNode = nodes.get(nw);
-        // Transfer children from n to nw (if any)
+        // Transfer children from *np to nw (if any)
         if (isNowhere) {
           nwNode.stem = true;
-          memcpy(nwNode.children, n.children, 4 * sizeof(I));
+          memcpy(nwNode.children, np->children, 4 * sizeof(I));
         }
-        n.children[0] = nw;
-        n.link = true;
-        n.stem = false;
-        return insert(t, ti, p, n.children[0], box);
+        np->children[0] = nw;
+        np->link = true;
+        np->stem = false;
+        return insert(t, ti, p, np->children[0], box);
       }
     }
-#undef n
 #undef isNowhere
 #undef isLink
 #undef numNodes
@@ -302,10 +307,15 @@ namespace zekku {
       }
       if (np->stem) {
         // Stem (and possibly a leaf)
-        query(shape, out, np->children[0], box.nw());
-        query(shape, out, np->children[1], box.ne());
-        query(shape, out, np->children[2], box.sw());
-        query(shape, out, np->children[3], box.se());
+        glm::tvec2<F> halfs = box.s * 0.5f;
+        query(shape, out, np->children[0],
+          AABB<F>{box.c - halfs, halfs});
+        query(shape, out, np->children[1],
+          AABB<F>{{box.c.x + halfs.x, box.c.y - halfs.y}, halfs});
+        query(shape, out, np->children[2],
+          AABB<F>{{box.c.x - halfs.x, box.c.y + halfs.y}, halfs});
+        query(shape, out, np->children[3],
+          AABB<F>{box.c + halfs, halfs});
       }
       for (I i = 0; i < np->nodeCount; ++i) {
         uint32_t ni = np->nodes[i];
