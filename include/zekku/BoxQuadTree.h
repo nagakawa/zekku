@@ -117,9 +117,7 @@ namespace zekku {
     template<typename Q = AABB<T>>
     void query(const Q& shape, std::vector<BBHandle>& out) const {
       query(shape, out, root, box);
-      sortHandles(out);
-      auto it = std::unique(out.begin(), out.end());
-      out.erase(it, out.end());
+      // No dedupe needed anymore
     }
     template<typename Q = AABB<T>, typename C>
     void query(const Q& shape, C callback) const {
