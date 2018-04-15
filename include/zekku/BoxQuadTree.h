@@ -24,14 +24,14 @@ namespace zekku {
   struct DefaultGetBB {
     static_assert(std::is_floating_point<F>::value,
       "Your F is not a floating-point number, dum dum!");
-    const AABB<F>& getBox(const T& t) const { return t.box; }
+    const AABB<F>& operator()(const T& t) const { return t.box; }
   };
   // Yes, this sounds pretty silly.
   template<typename F = float>
   struct AABBGetBB {
     static_assert(std::is_floating_point<F>::value,
       "Your F is not a floating-point number, dum dum!");
-    const AABB<F>& getBox(const AABB<F>& t) const { return t; }
+    const AABB<F>& operator()(const AABB<F>& t) const { return t; }
   };
   template<typename F>
   struct BBHash {
@@ -93,7 +93,7 @@ namespace zekku {
       return insert(std::move(t2));
     }
     BBHandle insert(T&& t) {
-      AABB<F> p = gbox.getBox(t);
+      AABB<F> p = gbox(t);
       if (!box.contains(p)) {
         std::cerr << "(" << p.c.x << ", " << p.c.y << ") +/- (";
         std::cerr << p.s.x << ", " << p.s.y;
@@ -143,7 +143,7 @@ namespace zekku {
       for (auto it = canonicals.begin(); it != canonicals.end(); ++it) {
         T& t = *it;
         f(t);
-        AABB<F> p = gbox.getBox(t);
+        AABB<F> p = gbox(t);
         insert(t, it.i, p, root, box);
       }
     }
@@ -236,7 +236,7 @@ namespace zekku {
       }
       if (numNodes < nc) {
         n.nodes[numNodes] = ti;
-        AABB<F> bb = gbox.getBox(t);
+        AABB<F> bb = gbox(t);
         n.hash ^= BBHash<F>()(bb);
         ++n.nodeCount;
         return { ti };
@@ -256,7 +256,7 @@ namespace zekku {
         for (size_t i = 0; i < nc; ++i) {
           size_t subi = n.nodes[i];
           const T& sub = canonicals.get(subi);
-          AABB<F> ps = gbox.getBox(sub);
+          AABB<F> ps = gbox(sub);
           insertStem(sub, subi, ps, root, box);
         }
         return insertStem(t, ti, p, root, box);
@@ -294,7 +294,7 @@ namespace zekku {
         for (I i = 0; i < nc; ++i) {
           uint32_t ni = np->nodes[i];
           const T& n = canonicals.get(ni);
-          if (shape.intersects(gbox.getBox(n)))
+          if (shape.intersects(gbox(n)))
             out.push_back({ ni });
         }
         np = &(nodes.get(np->children[0]));
@@ -309,7 +309,7 @@ namespace zekku {
       for (I i = 0; i < np->nodeCount; ++i) {
         uint32_t ni = np->nodes[i];
         const T& n = canonicals.get(ni);
-        if (shape.intersects(gbox.getBox(n)))
+        if (shape.intersects(gbox(n)))
           out.push_back({ ni });
       }
     }
@@ -332,7 +332,7 @@ namespace zekku {
       }
       while (n->link) {
         for (size_t i = 0; i < nc; ++i) {
-          AABB<F> p = gbox.getBox(canonicals.get(n->nodes[i]));
+          AABB<F> p = gbox(canonicals.get(n->nodes[i]));
           printAABB(p);
         }
         n = &nodes.get(n->children[0]);
@@ -349,7 +349,7 @@ namespace zekku {
       }
       if (!n->stem || n->nodeCount != 0) {
         for (size_t i = 0; i < n->nodeCount; ++i) {
-          AABB<F> p = gbox.getBox(canonicals.get(n->nodes[i]));
+          AABB<F> p = gbox(canonicals.get(n->nodes[i]));
           printAABB(p);
         }
       }

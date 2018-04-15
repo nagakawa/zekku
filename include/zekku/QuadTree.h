@@ -20,7 +20,7 @@ namespace zekku {
   struct DefaultGetXY {
     static_assert(std::is_floating_point<F>::value,
       "Your F is not a floating-point number, dum dum!");
-    glm::tvec2<F> getPos(T t) const { return {t.x, t.y}; }
+    glm::tvec2<F> operator()(T t) const { return {t.x, t.y}; }
   };
   template<typename F = float>
   struct AABB {
@@ -177,7 +177,7 @@ namespace zekku {
       return insert(std::move(t2));
     }
     Handle<I> insert(T&& t) {
-      glm::tvec2<F> p = gxy.getPos(t);
+      glm::tvec2<F> p = gxy(t);
       if (!box.contains(p)) {
         std::cerr << "(" << p[0] << ", " << p[1] << ") is out of range!\n";
         std::cerr << "Box is centred at (" << box.c[0] << ", " << box.c[1] << ") ";
@@ -281,7 +281,7 @@ namespace zekku {
         return insert(std::move(t), p, n.children[0], box);
       } else if (n.nodeCount < nc) {
         n.nodes[n.nodeCount] = std::move(t);
-        glm::tvec2<F> ps = gxy.getPos(t);
+        glm::tvec2<F> ps = gxy(t);
         n.hash ^= (std::hash<F>{}(ps.x) << 1) ^ std::hash<F>{}(ps.y);
         ++n.nodeCount;
         return { root, (I) (n.nodeCount - 1) };
@@ -299,7 +299,7 @@ namespace zekku {
         n.nodeCount = NOWHERE;
         for (size_t i = 0; i < nc; ++i) {
           T& sub = n.nodes[i];
-          glm::tvec2<F> ps = gxy.getPos(sub);
+          glm::tvec2<F> ps = gxy(sub);
           insertStem(std::move(sub), ps, n, box);
         }
         return insertStem(std::move(t), p, n, box);
@@ -334,14 +334,14 @@ namespace zekku {
         query(shape, out, n.children[3], box.se());
       } else if (n.nodeCount == LINK) {
         for (I i = 0; i < nc; ++i) {
-          if (shape.contains(gxy.getPos(n.nodes[i])))
+          if (shape.contains(gxy(n.nodes[i])))
             out.push_back({root, i});
         }
         query(shape, out, n.children[0], box);
       } else {
         // Leaf
         for (I i = 0; i < n.nodeCount; ++i) {
-          if (shape.contains(gxy.getPos(n.nodes[i])))
+          if (shape.contains(gxy(n.nodes[i])))
             out.push_back({root, i});
         }
       }
@@ -361,14 +361,14 @@ namespace zekku {
         query(shape, callback, n.children[3], box.se());
       } else if (n.nodeCount == LINK) {
         for (I i = 0; i < nc; ++i) {
-          if (shape.contains(gxy.getPos(n.nodes[i])))
+          if (shape.contains(gxy(n.nodes[i])))
             callback(n.nodes[i]);
         }
         query(shape, callback, n.children[0], box);
       } else {
         // Leaf
         for (I i = 0; i < n.nodeCount; ++i) {
-          if (shape.contains(gxy.getPos(n.nodes[i])))
+          if (shape.contains(gxy(n.nodes[i])))
             callback(n.nodes[i]);
         }
       }
@@ -388,14 +388,14 @@ namespace zekku {
         querym(shape, callback, n.children[3], box.se());
       } else if (n.nodeCount == LINK) {
         for (I i = 0; i < nc; ++i) {
-          if (shape.contains(gxy.getPos(n.nodes[i])))
+          if (shape.contains(gxy(n.nodes[i])))
             callback(n.nodes[i]);
         }
         querym(shape, callback, n.children[0], box);
       } else {
         // Leaf
         for (I i = 0; i < n.nodeCount; ++i) {
-          if (shape.contains(gxy.getPos(n.nodes[i])))
+          if (shape.contains(gxy(n.nodes[i])))
             callback(n.nodes[i]);
         }
       }
@@ -428,7 +428,7 @@ namespace zekku {
         }
         while (n->nodeCount == LINK) {
           for (size_t i = 0; i < nc; ++i) {
-            glm::tvec2<F> p = gxy.getPos(n->nodes[i]);
+            glm::tvec2<F> p = gxy(n->nodes[i]);
             std::cerr << " (" << p.x << ", " << p.y << ")";
           }
           n = &nodes.get(n->children[0]);
@@ -444,7 +444,7 @@ namespace zekku {
           }
         } else {
           for (size_t i = 0; i < n->nodeCount; ++i) {
-            glm::tvec2<F> p = gxy.getPos(n->nodes[i]);
+            glm::tvec2<F> p = gxy(n->nodes[i]);
             std::cerr << " (" << p.x << ", " << p.y << ")";
           }
         }
