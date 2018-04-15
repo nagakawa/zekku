@@ -24,7 +24,7 @@ namespace zekku {
   struct DefaultGetBB {
     static_assert(std::is_floating_point<F>::value,
       "Your F is not a floating-point number, dum dum!");
-    const AABB<F>& operator()(const T& t) const { return t.box; }
+    const auto& operator()(const T& t) const { return t.box; }
   };
   // Yes, this sounds pretty silly.
   template<typename F = float>
