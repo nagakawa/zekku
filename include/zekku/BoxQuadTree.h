@@ -69,6 +69,7 @@ namespace zekku {
     typename I = uint16_t,
     typename F = float,
     size_t nc = QUADTREE_NODE_COUNT,
+    typename B = AABB<F>,
     typename GetBB = DefaultGetBB<T, F>
   >
   class BoxQuadTree {
@@ -93,7 +94,7 @@ namespace zekku {
       return insert(std::move(t2));
     }
     BBHandle insert(T&& t) {
-      AABB<F> p = gbox(t);
+      B p = gbox(t);
       if (!box.contains(p)) {
         std::cerr << "(" << p.c.x << ", " << p.c.y << ") +/- (";
         std::cerr << p.s.x << ", " << p.s.y;
@@ -143,7 +144,7 @@ namespace zekku {
       for (auto it = canonicals.begin(); it != canonicals.end(); ++it) {
         T& t = *it;
         f(t);
-        AABB<F> p = gbox(t);
+        B p = gbox(t);
         insert(t, it.i, p, root, box);
       }
     }
@@ -193,7 +194,7 @@ namespace zekku {
 #define isLink    (n.link)
 #define numNodes  (n.nodeCount)
     BBHandle insertStem(
-        const T& t, uint32_t ti, const AABB<F>& p,
+        const T& t, uint32_t ti, const B& p,
         size_t root,
         AABB<F> box) {
       // Find out which subboxes this object intersects
@@ -225,7 +226,7 @@ namespace zekku {
     // If forceHere is true, then the node will be created on this
     // node and nowhere else, possibly creating a link node.
     BBHandle insert(
-        const T& t, uint32_t ti, const AABB<F>& p,
+        const T& t, uint32_t ti, const B& p,
         I root,
         AABB<F> box,
         bool forceHere = false) {
@@ -236,7 +237,7 @@ namespace zekku {
       }
       if (numNodes < nc) {
         n.nodes[numNodes] = ti;
-        AABB<F> bb = gbox(t);
+        B bb = gbox(t);
         n.hash ^= BBHash<F>()(bb);
         ++n.nodeCount;
         return { ti };
@@ -256,7 +257,7 @@ namespace zekku {
         for (size_t i = 0; i < nc; ++i) {
           size_t subi = n.nodes[i];
           const T& sub = canonicals.get(subi);
-          AABB<F> ps = gbox(sub);
+          B ps = gbox(sub);
           insertStem(sub, subi, ps, root, box);
         }
         return insertStem(t, ti, p, root, box);
