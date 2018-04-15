@@ -206,7 +206,7 @@ namespace zekku {
       // but rounding errors can result in p intersecting with box
       // but not with any of its subboxes.
       // Intersects every quadrant?
-      if (i0 && i1 && i2 && i3) {
+      if (i0 + i1 + i2 + i3 >= 2) {
         return insert(t, ti, p, root, box, true);
       }
       // Otherwise...
