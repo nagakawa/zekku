@@ -95,7 +95,7 @@ namespace zekku {
     }
     BBHandle insert(T&& t) {
       B p = gbox(t);
-      if (!box.contains(p)) {
+      if (!p.isWithin(box)) {
         std::cerr << "(" << p.c.x << ", " << p.c.y << ") +/- (";
         std::cerr << p.s.x << ", " << p.s.y;
         std::cerr << ") is out of range!\n";
@@ -198,19 +198,19 @@ namespace zekku {
       // Find out which subboxes this object intersects
       unsigned count = 0;
       unsigned index = 0;
-      if (box.nw().intersects(p)) {
+      if (p.intersects(box.nw())) {
         ++count;
         index = 0;
       }
-      if (box.ne().intersects(p)) {
+      if (p.intersects(box.ne())) {
         ++count;
         index = 1;
       }
-      if (box.sw().intersects(p)) {
+      if (p.intersects(box.sw())) {
         ++count;
         index = 2;
       }
-      if (box.se().intersects(p)) {
+      if (p.intersects(box.se())) {
         ++count;
         index = 3;
       }

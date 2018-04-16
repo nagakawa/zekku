@@ -50,6 +50,9 @@ namespace zekku {
         p.c.y - p.s.y >= c.y - s.y &&
         p.c.y + p.s.y <= c.y + s.y;
     }
+    bool isWithin(const AABB<F>& p) const {
+      return p.contains(*this);
+    }
     bool intersects(const AABB<F>& p) const {
       return
         (std::abs(c.x - p.c.x) <= (s.x + p.s.x)) &&
@@ -61,10 +64,10 @@ namespace zekku {
       return (south << 1) | east;
     }
     AABB getSubboxByClass(uint32_t cl) const {
-      bool east = (cl & 1);
-      bool south = (cl & 2) >> 1;
+      int32_t east  = cl & 1; // 1 if east, 0 if west
+      int32_t south = cl & 2; // 2 if south, 0 if north
       glm::tvec2<F> dir{
-        (F) ((east << 1) - 1), (F) ((south << 1) - 1)};
+        (F) ((east << 1) - 1), (F) (south - 1)};
       glm::tvec2<F> halfs = s * F{0.5};
       return {
         c + halfs * dir,
@@ -115,6 +118,9 @@ namespace zekku {
       F dx = c.x - b.c.x;
       F dy = c.y - b.c.y;
       return dx * dx + dy * dy <= r * r;
+    }
+    bool isWithin(const AABB<F>& p) const {
+      return p.contains(*this);
     }
   };
   template<typename F = float>
