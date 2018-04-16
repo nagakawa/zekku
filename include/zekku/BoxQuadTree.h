@@ -22,15 +22,15 @@
 namespace zekku {
   template<typename T, typename F = float>
   struct DefaultGetBB {
-    static_assert(std::is_floating_point<F>::value,
-      "Your F is not a floating-point number, dum dum!");
+    static_assert(std::numeric_limits<F>::is_specialized,
+      "Your F is not a number, dum dum!");
     const auto& operator()(const T& t) const { return t.box; }
   };
   // Yes, this sounds pretty silly.
   template<typename F = float>
   struct AABBGetBB {
-    static_assert(std::is_floating_point<F>::value,
-      "Your F is not a floating-point number, dum dum!");
+    static_assert(std::numeric_limits<F>::is_specialized,
+      "Your F is not a number, dum dum!");
     const AABB<F>& operator()(const AABB<F>& t) const { return t; }
   };
   template<typename F>
@@ -78,8 +78,8 @@ namespace zekku {
       "Your I is not an integer, dum dum!");
     static_assert(std::is_unsigned<I>::value,
       "Don't use a signed int for sizes, dum dum!");
-    static_assert(std::is_floating_point<F>::value,
-      "Your F is not a floating-point number, dum dum!");
+    static_assert(std::numeric_limits<F>::is_specialized,
+      "Your F is not a number, dum dum!");
     // using BF = BloomFilter<BBHandle, BBHandleHasher, 1>;
     template<typename... Args>
     BoxQuadTree(const AABB<F>& box, Args&&... args) :

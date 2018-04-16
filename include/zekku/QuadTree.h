@@ -14,27 +14,36 @@
 #include <glm/glm.hpp>
 #include "zekku/Pool.h"
 #include "zekku/base.h"
+#include "zekku/timath.h"
 
 namespace zekku {
   template<typename T, typename F = float>
   struct DefaultGetXY {
-    static_assert(std::is_floating_point<F>::value,
-      "Your F is not a floating-point number, dum dum!");
+    static_assert(std::numeric_limits<F>::is_specialized,
+      "Your F is not a number, dum dum!");
     glm::tvec2<F> operator()(T t) const { return {t.x, t.y}; }
   };
   template<typename F = float>
   struct AABB {
-    static_assert(std::is_floating_point<F>::value,
-      "Your F is not a floating-point number, dum dum!");
+    static_assert(std::numeric_limits<F>::is_specialized,
+      "Your F is not a number, dum dum!");
     glm::tvec2<F> c;
     glm::tvec2<F> s; // centre to corner
-    AABB<F> nw() const { return {c - s * F{0.5}, s * F{0.5}}; }
-    AABB<F> ne() const { return {c + s * glm::tvec2<F>{0.5f, -0.5f}, s * F{0.5}}; }
-    AABB<F> sw() const { return {c + s * glm::tvec2<F>{-0.5f, 0.5f}, s * F{0.5}}; }
-    AABB<F> se() const { return {c + s * F{0.5}, s * F{0.5}}; }
+    AABB<F> nw() const {
+      return {c - s * oneHalf<F>, s * oneHalf<F>};
+    }
+    AABB<F> ne() const {
+      return {c + s * glm::tvec2<F>{oneHalf<F>, -oneHalf<F>}, s * oneHalf<F>};
+    }
+    AABB<F> sw() const {
+      return {c + s * glm::tvec2<F>{-oneHalf<F>, oneHalf<F>}, s * oneHalf<F>};
+    }
+    AABB<F> se() const {
+      return {c + s * oneHalf<F>, s * oneHalf<F>};
+    }
     glm::tvec2<F> nwp() const { return c - s; }
-    glm::tvec2<F> nep() const { return c + s * glm::tvec2<F>{1.0f, -1.0f}; }
-    glm::tvec2<F> swp() const { return c + s * glm::tvec2<F>{-1.0f, 1.0f}; }
+    glm::tvec2<F> nep() const { return c + s * glm::tvec2<F>{1, -1}; }
+    glm::tvec2<F> swp() const { return c + s * glm::tvec2<F>{-1, 1}; }
     glm::tvec2<F> sep() const { return c + s; }
     bool contains(glm::tvec2<F> p) const {
       return
@@ -55,8 +64,8 @@ namespace zekku {
     }
     bool intersects(const AABB<F>& p) const {
       return
-        (std::abs(c.x - p.c.x) <= (s.x + p.s.x)) &&
-        (std::abs(c.y - p.c.y) <= (s.y + p.s.y));
+        (zekku::abs(c.x - p.c.x) <= (s.x + p.s.x)) &&
+        (zekku::abs(c.y - p.c.y) <= (s.y + p.s.y));
     }
     size_t getClass(glm::tvec2<F> p) const {
       bool east = p.x > c.x;
@@ -68,7 +77,7 @@ namespace zekku {
       int32_t south = cl & 2; // 2 if south, 0 if north
       glm::tvec2<F> dir{
         (F) ((east << 1) - 1), (F) (south - 1)};
-      glm::tvec2<F> halfs = s * F{0.5};
+      glm::tvec2<F> halfs = s * oneHalf<F>;
       return {
         c + halfs * dir,
         halfs
@@ -110,14 +119,14 @@ namespace zekku {
     thanks https://gamedev.stackexchange.com/a/120897
     */
     bool intersects(const AABB<F>& b) const {
-      F dx = std::max(std::abs(c.x - b.c.x) - b.s.x, F{0});
-      F dy = std::max(std::abs(c.y - b.c.y) - b.s.y, F{0});
-      return dx * dx + dy * dy <= r * r;
+      F dx = std::max(zekku::abs(c.x - b.c.x) - b.s.x, F{0});
+      F dy = std::max(zekku::abs(c.y - b.c.y) - b.s.y, F{0});
+      return zekku::isWithin(dx, dy, r);
     }
     bool intersects(const Circle<F>& b) const {
       F dx = c.x - b.c.x;
       F dy = c.y - b.c.y;
-      return dx * dx + dy * dy <= r * r;
+      return zekku::isWithin(dx, dy, r);
     }
     bool isWithin(const AABB<F>& p) const {
       return p.contains(*this);
@@ -160,8 +169,8 @@ namespace zekku {
       "Your I is not an integer, dum dum!");
     static_assert(std::is_unsigned<I>::value,
       "Don't use a signed int for sizes, dum dum!");
-    static_assert(std::is_floating_point<F>::value,
-      "Your F is not a floating-point number, dum dum!");
+    static_assert(std::numeric_limits<F>::is_specialized,
+      "Your F is not a number, dum dum!");
     template<typename... Args>
     QuadTree(const AABB<F>& box, Args&&... args) :
         root((I) nodes.allocate()), box(box), gxy(args...) {}
