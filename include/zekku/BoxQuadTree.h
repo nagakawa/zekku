@@ -196,25 +196,39 @@ namespace zekku {
         const AABB<F>& box) {
       Node* np = &nodes.get(root);
       // Find out which subboxes this object intersects
-      bool i0 = box.nw().intersects(p);
-      bool i1 = box.ne().intersects(p);
-      bool i2 = box.sw().intersects(p);
-      bool i3 = box.se().intersects(p);
+      unsigned count = 0;
+      unsigned index = 0;
+      if (box.nw().intersects(p)) {
+        ++count;
+        index = 0;
+      }
+      if (box.ne().intersects(p)) {
+        ++count;
+        index = 1;
+      }
+      if (box.sw().intersects(p)) {
+        ++count;
+        index = 2;
+      }
+      if (box.se().intersects(p)) {
+        ++count;
+        index = 3;
+      }
       // By now, at least one element of intersect *should* be true,
       // but rounding errors can result in p intersecting with box
       // but not with any of its subboxes.
-      // Intersects every quadrant?
-      if (i0 + i1 + i2 + i3 >= 2) {
+      // Intersects two or more quadrants?
+      if (count >= 2) {
         return insert(t, ti, p, root, box, true);
       }
       // Otherwise...
-      if (i0)
+      if (index == 0)
         insert(t, ti, p, np->children[0], box.nw());
-      if (i1)
+      if (index == 1)
         insert(t, ti, p, np->children[1], box.ne());
-      if (i2)
+      if (index == 2)
         insert(t, ti, p, np->children[2], box.sw());
-      if (i3)
+      if (index == 3)
         insert(t, ti, p, np->children[3], box.se());
       // We can just return ti
       // since that's the index into the `canonicals` array
@@ -234,7 +248,6 @@ namespace zekku {
         np = &nodes.get(root);
       }
       if (isNowhere && !forceHere) {
-        assert(!isLink);
         return insertStem(t, ti, p, root, box);
       }
       if (numNodes < nc) {
