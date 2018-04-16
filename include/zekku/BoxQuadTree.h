@@ -269,13 +269,6 @@ namespace zekku {
         np->children[2] = sw;
         np->children[3] = se;
         np->stem = true;
-        np->nodeCount = 0;
-        for (size_t i = 0; i < nc; ++i) {
-          size_t subi = np->nodes[i];
-          const T& sub = canonicals.get(subi);
-          B ps = gbox(sub);
-          insertStem(sub, subi, ps, root, box);
-        }
         return insertStem(t, ti, p, root, box);
       } else {
         // Leaf is full, and chances are:
