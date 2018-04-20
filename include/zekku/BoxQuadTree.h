@@ -311,7 +311,7 @@ namespace zekku {
       }
       if (np->stem) {
         // Stem (and possibly a leaf)
-        glm::tvec2<F> halfs = box.s * 0.5f;
+        glm::tvec2<F> halfs = box.s * zekku::oneHalf<F>;
         query(shape, out, np->children[0],
           AABB<F>{box.c - halfs, halfs});
         query(shape, out, np->children[1],

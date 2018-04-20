@@ -1,0 +1,3 @@
+[submodule "3rdparty/kozet_fixed_point"]
+	path = 3rdparty/kozet_fixed_point
+	url = https://github.com/nagakawa/kozet_fixed_point

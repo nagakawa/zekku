@@ -110,7 +110,8 @@ namespace zekku {
     glm::tvec2<F> c;
     F r;
     bool contains(glm::tvec2<F> p) const {
-      return glm::dot(c - p, c - p) <= r * r;
+      glm::tvec2<F> d = c - p;
+      return zekku::isWithin(d.x, d.y, r);
     }
     /*
     This method considers a rounded rectangle around the AABB with
@@ -126,7 +127,7 @@ namespace zekku {
     bool intersects(const Circle<F>& b) const {
       F dx = c.x - b.c.x;
       F dy = c.y - b.c.y;
-      return zekku::isWithin(dx, dy, r);
+      return zekku::isWithin(dx, dy, r + b.r);
     }
     bool isWithin(const AABB<F>& p) const {
       return p.contains(*this);
