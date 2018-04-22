@@ -9,6 +9,7 @@ all: build/test
 
 build/test: test/main.cpp \
 		include/zekku/Pool.h \
+		include/zekku/geometry.h \
 		include/zekku/QuadTree.h \
 		include/zekku/BoxQuadTree.h \
 		include/zekku/bitwise.h \
