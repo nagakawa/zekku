@@ -17,6 +17,13 @@ namespace zekku {
       return x * x + y * y <= r * r;
     }
     static constexpr T oneHalf = T(0.5);
+    typedef long double DoubleType;
+    static T hypot(T x, T y) {
+      return std::hypot(x, y);
+    }
+    static T sqrt(DoubleType x) {
+      return (T) std::sqrt(x);
+    }
   };
   template<> struct TIMath<float> : TIMathFloat<float> {};
   template<> struct TIMath<double> : TIMathFloat<double> {};
@@ -31,6 +38,28 @@ namespace zekku {
   }
   template<typename T>
   constexpr T oneHalf = TIMath<T>::oneHalf;
+  template<typename T>
+  using DoubleType = typename TIMath<T>::DoubleType;
+  template<typename T>
+  T hypot(T x, T y) {
+    return TIMath<T>::hypot(x, y);
+  }
+  template<typename T>
+  T sqrt(DoubleType<T> x) {
+    return TIMath<T>::sqrt(x);
+  }
+  template<typename F>
+  DoubleType<F> cross2(const glm::tvec2<F>& a, const glm::tvec2<F>& b) {
+    return
+      ((DoubleType<F>) a.x) * ((DoubleType<F>) b.y) -
+      ((DoubleType<F>) a.y) * ((DoubleType<F>) b.x);
+  }
+  template<typename F>
+  DoubleType<F> dotUnfucked(const glm::tvec2<F>& a, const glm::tvec2<F>& b) {
+    return
+      ((DoubleType<F>) a.x) * ((DoubleType<F>) b.x) +
+      ((DoubleType<F>) a.y) * ((DoubleType<F>) b.y);
+  }
 }
 
 #endif

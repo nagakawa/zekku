@@ -20,6 +20,13 @@ namespace zekku {
       return kfp::isInterior(x, y, r);
     }
     static constexpr T oneHalf = T::raw(1 << (d - 1));
+    typedef kfp::DoubleTypeExact<T> DoubleType;
+    static T hypot(T x, T y) {
+      return kfp::hypot(x, y);
+    }
+    static T sqrt(DoubleType x) {
+      return kfp::sqrt<typename T::Underlying, T::fractionalBits()>(x);
+    }
   };
 }
 

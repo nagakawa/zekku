@@ -105,8 +105,11 @@ namespace zekku {
     return a.c == b.c && a.s == b.s;
   }
   template<typename F = float>
+  struct Line;
+  template<typename F = float>
   struct Circle {
     Circle(const glm::tvec2<F>& c, F r) : c(c), r(r) {}
+    Circle() : c(0), r(0) {}
     glm::tvec2<F> c;
     F r;
     bool contains(glm::tvec2<F> p) const {
@@ -129,10 +132,52 @@ namespace zekku {
       F dy = c.y - b.c.y;
       return zekku::isWithin(dx, dy, r + b.r);
     }
+    bool intersects(const Line<F>& l) const;
     bool isWithin(const AABB<F>& p) const {
-      return p.contains(*this);
+      AABB<F> bounding = { c, { r, r } };
+      return bounding.isWithin(p);
     }
   };
+  template<typename F>
+  struct Line {
+    Line(const glm::tvec2<F>& x1, const glm::tvec2<F>& x2) : x1(x1), x2(x2) {}
+    Line() : x1(0, 0), x2(0, 0) {}
+    glm::tvec2<F> x1, x2;
+    bool isWithin(const AABB<F>& b) const {
+      return
+        zekku::abs(x1.x - b.c.x) <= b.s.x &&
+        zekku::abs(x1.y - b.c.y) <= b.s.y &&
+        zekku::abs(x2.x - b.c.x) <= b.s.x &&
+        zekku::abs(x2.y - b.c.y) <= b.s.y;
+    }
+    bool intersects(const Line<F>& b) const {
+      glm::tvec2<F> r = x2 - x1;
+      glm::tvec2<F> s = b.x2 - b.x1;
+      DoubleType<F> un = cross2(b.x1 - x1, r);
+      DoubleType<F> ud = cross2(r, s); 
+      if (ud == 0) return un == 0;
+      return un >= 0 && un <= ud;
+    }
+    bool intersects(const Circle<F>& sh) const {
+      glm::tvec2<F> r = x2 - x1;
+      glm::tvec2<F> f = x1 - sh.c;
+      using D = DoubleType<F>;
+      D a = dotUnfucked(r, r);
+      D b = dotUnfucked(r, f);
+      D c = dotUnfucked(f, f) - sh.r * sh.r;
+      DoubleType<D> d2 = b * b - 4 * a * c;
+      if (d2 < 0) return false;
+      D d = zekku::sqrt<D>(d2);
+      D t1n = b - d;
+      if (t1n >= 0 && t1n <= 2 * a) return true;
+      D t2n = b + d;
+      return t1n >= 0 && t1n <= 2 * a;
+    }
+  };
+  template<typename F>
+  bool Circle<F>::intersects(const Line<F>& l) const {
+    return l.intersects(*this);
+  }
   template<typename F = float>
   struct QueryAll {
     bool contains(glm::tvec2<F> p) const { return true; }
