@@ -171,7 +171,7 @@ namespace zekku {
       D t1n = b - d;
       if (t1n >= 0 && t1n <= 2 * a) return true;
       D t2n = b + d;
-      return t1n >= 0 && t1n <= 2 * a;
+      return t2n >= 0 && t2n <= 2 * a;
     }
   };
   template<typename F>
