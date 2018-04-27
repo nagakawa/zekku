@@ -140,7 +140,7 @@ namespace zekku {
       glm::tvec2<F> r = x2 - x1;
       glm::tvec2<F> s = b.x2 - b.x1;
       DoubleType<F> un = cross2(b.x1 - x1, r);
-      DoubleType<F> ud = cross2(r, s); 
+      DoubleType<F> ud = cross2(r, s);
       if (ud == 0) return un == 0;
       return un >= 0 && un <= ud;
     }
@@ -148,10 +148,11 @@ namespace zekku {
       glm::tvec2<F> r = x2 - x1;
       glm::tvec2<F> f = x1 - sh.c;
       using D = DoubleType<F>;
+      using DD = DoubleType<D>;
       D a = dotUnfucked(r, r);
       D b = dotUnfucked(r, f);
-      D c = dotUnfucked(f, f) - sh.r * sh.r;
-      DoubleType<D> d2 = b * b - 4 * a * c;
+      D c = dotUnfucked(f, f) - (D) sh.r * sh.r;
+      DD d2 = (DD) b * b - (DD) a * c * 4;
       if (d2 < 0) return false;
       D d = zekku::sqrt<D>(d2);
       D t1n = b - d;
