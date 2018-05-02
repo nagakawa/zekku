@@ -27,6 +27,9 @@ namespace zekku {
     static T sqrt(DoubleType x) {
       return kfp::sqrt<typename T::Underlying, T::fractionalBits()>(x);
     }
+    static DoubleType longMultiply(T x, T y) {
+      return kfp::longMultiply(x, y);
+    }
   };
 }
 

@@ -126,7 +126,8 @@ namespace zekku {
   };
   template<typename F>
   struct Line {
-    Line(const glm::tvec2<F>& x1, const glm::tvec2<F>& x2) : x1(x1), x2(x2) {}
+    Line(const glm::tvec2<F>& x1, const glm::tvec2<F>& x2)
+      : x1(x1), x2(x2) {}
     Line() : x1(0, 0), x2(0, 0) {}
     glm::tvec2<F> x1, x2;
     bool isWithin(const AABB<F>& b) const {
@@ -152,7 +153,7 @@ namespace zekku {
       D a = dotUnfucked(r, r);
       D b = dotUnfucked(r, f);
       D c = dotUnfucked(f, f) - (D) sh.r * sh.r;
-      DD d2 = (DD) b * b - (DD) a * c * 4;
+      DD d2 = zekku::longMultiply(b, b) - zekku::longMultiply(a, c) * 4;
       if (d2 < 0) return false;
       D d = zekku::sqrt<D>(d2);
       D t1n = b - d;

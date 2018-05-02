@@ -24,6 +24,9 @@ namespace zekku {
     static T sqrt(DoubleType x) {
       return (T) std::sqrt(x);
     }
+    static constexpr DoubleType longMultiply(T x, T y) {
+      return x * y;
+    }
   };
   template<> struct TIMath<float> : TIMathFloat<float> {};
   template<> struct TIMath<double> : TIMathFloat<double> {};
@@ -47,6 +50,10 @@ namespace zekku {
   template<typename T>
   T sqrt(DoubleType<T> x) {
     return TIMath<T>::sqrt(x);
+  }
+  template<typename T>
+  constexpr DoubleType<T> longMultiply(T x, T y) {
+    return TIMath<T>::longMultiply(x, y);
   }
   template<typename F>
   DoubleType<F> cross2(const glm::tvec2<F>& a, const glm::tvec2<F>& b) {
