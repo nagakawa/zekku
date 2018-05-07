@@ -26,8 +26,8 @@ namespace zekku {
   };
   template<typename F = float>
   struct QueryAll {
-    bool contains(glm::tvec2<F> p) const { return true; }
-    bool intersects(const AABB<F>& b) const { return true; }
+    bool contains(glm::tvec2<F> /*p*/) const { return true; }
+    bool intersects(const AABB<F>& /*b*/) const { return true; }
   };
   template<typename I = uint16_t>
   struct Handle {

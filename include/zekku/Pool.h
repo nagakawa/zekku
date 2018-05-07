@@ -36,7 +36,7 @@ namespace zekku {
   template<typename T,
     typename std::enable_if<
       std::is_trivially_destructible<T>::value, int>::type = 0>
-  void freeElems(T* elems, bool* allocated, size_t size) {}
+  void freeElems(T* /*elems*/, bool* /*allocated*/, size_t /*size*/) {}
   // ------------------
   constexpr size_t START_CAPAT = 64;
   template<typename T>
